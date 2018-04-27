@@ -1,4 +1,7 @@
 #include "Diff.h"
+#include "Func.h"
+using namespace Diff;
+
 #include <math.h>
 #define TPrintf printf
 
@@ -13,12 +16,12 @@ void test_Diff() {
 
 	TEST_TRUE(DCount.size() == 0);
 	{
-		DVariable x = 4;
+		Var x = 4;
 		TEST_SAME(sqrt(x).D(x).V(), 0.5 / sqrt(x.V()));
 	}
 
 	{
-		DVariable three = 3;
+		Var three = 3;
 		TEST_SAME(three.V(), 3);
 		TEST_SAME((three * three).V(), 9);
 		TEST_SAME((three + three).V(), 6);
@@ -27,7 +30,7 @@ void test_Diff() {
 	}
 
 	{
-		DVariable x = 4;
+		Var x = 4;
 		TEST_SAME(x.D(x).V(), 1);
 		TEST_SAME((x * x).D(x).V(), 2 * x.V());
 		TEST_SAME((x + x).D(x).V(), 2);
@@ -42,12 +45,12 @@ void test_Diff() {
 
 
 	{
-		DVariable x = 4;
+		Var x = 4;
 		TEST_SAME((x*x*x).D(x).D(x).V(), 3 * 2 * x.V());
 		TEST_SAME((x*x*x*x).D(x).D(x).D(x).V(), 4 * 3 * 2 * x.V());
 	}
 	{
-		DVariable x("x", 4);
+		Var x("x", 4);
 		TEST_SAME(POW2(x).V(), (x*x).V());
 		TEST_SAME(POW2(x).D(x).V(), (x*x).D(x).V());
 		TEST_SAME(POW2(x).D(x).D(x).V(), (x*x).D(x).D(x).V());
@@ -59,7 +62,7 @@ void test_Diff() {
 	}
 
 	{ // exp
-		DVariable x("x", 4);
+		Var x("x", 4);
 		TEST_SAME(exp(2 * x).V(), exp(2 * x.V()));
 		TEST_SAME(exp(2 * x).D(x).V(), 2 * exp(2 * x.V()));
 		TEST_SAME(exp(2 * x).D(x).D(x).V(), 2 * 2 * exp(2 * x.V()));
@@ -70,7 +73,7 @@ void test_Diff() {
 	}
 
 	{ // sin cos
-		DVariable x("x", 4);
+		Var x("x", 4);
 		TEST_SAME(sin(2 * x).V(), sin(2 * x.V()));
 		TEST_SAME(sin(2 * x).D(x).V(), 2 * cos(2 * x.V()));
 		TEST_SAME(sin(2 * x).D(x).D(x).V(), -4 * sin(2 * x.V()));
@@ -101,9 +104,9 @@ void test_Diff() {
 		TPrintf("cosh(2x)''       : %s\n", cosh(2 * x).D(x).D(x).ToString().c_str());
 	}
 	{ // sqrt
-		DVariable p("p", 1);
-		DConst mass = 1;
-		DExpr energy = sqrt(mass*mass + p*p);
+		Var p("p", 1);
+		Const mass = 1;
+		Expr energy = sqrt(mass*mass + p*p);
 		TEST_SAME(energy.V(), sqrt(2));
 		TEST_SAME(energy.D(p).V(), (p / energy).V());
 		TPrintf("sqrt(m^2+p^2)        : %s\n", energy.ToString().c_str());
@@ -111,17 +114,17 @@ void test_Diff() {
 	}
 
 	{ // constants fold
-		DConst mass = 1;
-		DConst p = 1;
-		DExpr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
+		Const mass = 1;
+		Const p = 1;
+		Expr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
 		TEST_SAME(energy.V(), exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)).V(), 2)));
 		TPrintf("exp(pow(log(1+cos(sin(sqrt(mass*mass + p*p))-1)), 2))        : %s\n", energy.ToString().c_str());
 	}
 
 	{ // numerical test
-		DConst mass = 1;
-		DVariable p = 1;
-		DExpr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
+		Const mass = 1;
+		Var p = 1;
+		Expr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
 
 		p.SetV(0.9999);
 		double e1 = energy.V();
@@ -132,7 +135,7 @@ void test_Diff() {
 	}
 
 	{
-		DVariable x("x", 2);
+		Var x("x", 2);
 		TPrintf("x+x          : %s\n", (x + x).ToString().c_str());
 		TPrintf("x-x          : %s\n", (x - x).ToString().c_str());
 		TPrintf("x*x          : %s\n", (x * x).ToString().c_str());
@@ -173,28 +176,26 @@ void test_Diff() {
 void fix_var() {
 
 	{
-		{
-			DConst mass = 1;
-			DVariable p("p", 1);
-			DExpr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2)/2);
+		Const mass = 1;
+		Var p("p", 1);
+		Expr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + 1*p*p)) - 1)), 2) / 2);
 
-			auto energy_vars = energy.GetVariablesList();
-			for (auto &v : energy_vars) {
-				printf("var alive %s\n", v.GetName().c_str());
-			}
-			TEST_TRUE(energy_vars.size() == 1);
-
-			DExpr e = energy.FixVariable(p);
-			auto e_vars = e.GetVariablesList();
-			for (auto &v : e_vars) {
-				printf("var alive %s\n", v.GetName().c_str());
-			}
-			TEST_TRUE(e_vars.size() == 0);
-
-			TEST_SAME(e.V(), energy.V());
-
-			TPrintf("exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2)/2) fix var: %s\n", e.ToString().c_str());
+		auto energy_vars = energy.GetVariablesList();
+		for (auto &v : energy_vars) {
+			printf("var in energy %s\n", v.GetName().c_str());
 		}
+		TEST_TRUE(energy_vars.size() == 1);
+
+		Expr e = energy.FixVariable(p);
+		auto e_vars = e.GetVariablesList();
+		for (auto &v : e_vars) {
+			printf("var in energy %s\n", v.GetName().c_str());
+		}
+		TEST_TRUE(e_vars.size() == 0);
+
+		TEST_SAME(e.V(), energy.V());
+
+		TPrintf("exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2)/2) fix var: %s\n", e.ToString().c_str());
 
 	}
 
@@ -277,14 +278,14 @@ struct ConstantsFactory
 
 struct Formula {
 
-	DVariable costheta;
-	DVariable eH;
-	std::vector<DExpr> X_Is;
-	std::vector<DExpr> X_Ss;
-	std::vector<DExpr> X_Ws;
-	std::vector<DExpr> X_Is0;
-	std::vector<DExpr> X_Ss0;
-	std::vector<DExpr> X_Ws0;
+	Var costheta;
+	Var eH;
+	std::vector<Expr> X_Is;
+	std::vector<Expr> X_Ss;
+	std::vector<Expr> X_Ws;
+	std::vector<Expr> X_Is0;
+	std::vector<Expr> X_Ss0;
+	std::vector<Expr> X_Ws0;
 
 	void Init(int n)
 	{
@@ -307,28 +308,28 @@ struct Formula {
 
 	Formula(Constants C, double XsectionGlobalFactor) : costheta("costheta", 0), eH("e", 140)
 	{
-		DConst const m_Z = C.m_Z;
-		DConst const w_Z = C.w_Z;
-		DConst const sqrts = C.sqrts;
-		DConst const mH = C.m_H;
-		DConst const s = C.s;
-		DExpr const costheta2 = POW2(costheta);
-		DExpr const p = sqrt(eH*eH - mH*mH);
-		DExpr const epsilon_v = sqrts - eH;
-		DExpr const s_v = epsilon_v*epsilon_v - p*p;
-		DExpr const s1 = sqrts*(epsilon_v + p*costheta);
-		DExpr const s2 = sqrts*(epsilon_v - p*costheta);
-		DExpr const s1s2 = sqrts*sqrts*(POW2(epsilon_v) - POW2(p)*costheta2);
-		DExpr const c_x = 1 - 2 * s*s_v / (s1s2);
-		DExpr const s2_x = 1 - c_x*c_x;
-		DExpr const h1 = 1 + 2 * POW2(C.m_W) / s1;
-		DExpr const h2 = 1 + 2 * POW2(C.m_W) / s2;
-		DExpr const h1h2 = 1 + 4 * POW4(C.m_W) / s1s2 + 4 * POW2(C.m_W)*sqrts*epsilon_v / s1s2;
+		Const const m_Z = C.m_Z;
+		Const const w_Z = C.w_Z;
+		Const const sqrts = C.sqrts;
+		Const const mH = C.m_H;
+		Const const s = C.s;
+		Expr const costheta2 = POW2(costheta);
+		Expr const p = sqrt(eH*eH - mH*mH);
+		Expr const epsilon_v = sqrts - eH;
+		Expr const s_v = epsilon_v*epsilon_v - p*p;
+		Expr const s1 = sqrts*(epsilon_v + p*costheta);
+		Expr const s2 = sqrts*(epsilon_v - p*costheta);
+		Expr const s1s2 = sqrts*sqrts*(POW2(epsilon_v) - POW2(p)*costheta2);
+		Expr const c_x = 1 - 2 * s*s_v / (s1s2);
+		Expr const s2_x = 1 - c_x*c_x;
+		Expr const h1 = 1 + 2 * POW2(C.m_W) / s1;
+		Expr const h2 = 1 + 2 * POW2(C.m_W) / s2;
+		Expr const h1h2 = 1 + 4 * POW4(C.m_W) / s1s2 + 4 * POW2(C.m_W)*sqrts*epsilon_v / s1s2;
 
-		DExpr const r = h1*h1 + h2*h2 + 2 * c_x*h1h2 - s2_x;
-		DExpr const t1 = h1 + c_x*h2;
-		DExpr const t2 = h2 + c_x*h1;
-		DExpr const L = log((h1h2 + c_x + sqrt(r)) / (h1h2 + c_x - sqrt(r)));
+		Expr const r = h1*h1 + h2*h2 + 2 * c_x*h1h2 - s2_x;
+		Expr const t1 = h1 + c_x*h2;
+		Expr const t2 = h2 + c_x*h1;
+		Expr const L = log((h1h2 + c_x + sqrt(r)) / (h1h2 + c_x - sqrt(r)));
 
 		if (0) {
 			printf("L %f\n", L.V());
@@ -340,33 +341,33 @@ struct Formula {
 		}
 
 		{
-			DConst const cosThetaW2 = 1 - C.sinThetaW2;
-			DExpr const f1 = (C.v_e + C.a_e)*POW2(cosThetaW2) / 8;
-			DExpr const f2 = (s_v - m_Z*m_Z) / ((s - POW2(m_Z)) * (POW2(s_v - m_Z*m_Z) + POW2(m_Z*w_Z)));
-			DExpr const f3 = 2 - (h1 + 1)*log((h1 + 1) / (h1 - 1)) - (h2 + 1)*log((h2 + 1) / (h2 - 1)) + (h1 + 1)*(h2 + 1)*L / sqrt(r);
-			DExpr G_I = f1*f2*f3;
-			DExpr X_I = XsectionGlobalFactor*p*G_I;
+			Const const cosThetaW2 = 1 - C.sinThetaW2;
+			Expr const f1 = (C.v_e + C.a_e)*POW2(cosThetaW2) / 8;
+			Expr const f2 = (s_v - m_Z*m_Z) / ((s - POW2(m_Z)) * (POW2(s_v - m_Z*m_Z) + POW2(m_Z*w_Z)));
+			Expr const f3 = 2 - (h1 + 1)*log((h1 + 1) / (h1 - 1)) - (h2 + 1)*log((h2 + 1) / (h2 - 1)) + (h1 + 1)*(h2 + 1)*L / sqrt(r);
+			Expr G_I = f1*f2*f3;
+			Expr X_I = XsectionGlobalFactor*p*G_I;
 			X_Is.push_back(X_I);
 			X_Is0.push_back(X_Is.back().FixVariable(costheta));
 		}
 		{
-			DConst const f1 = (POW2(C.v_e) + POW2(C.a_e)) / 96;
-			DExpr const f2 = (s*s_v + s1*s2) / (POW2(s - POW2(m_Z)) * (POW2(s_v - m_Z*m_Z) + POW2(m_Z*w_Z)));
-			DExpr const Gs = f1*f2;
-			DExpr X_S = XsectionGlobalFactor*p * 3 * Gs;
+			Const const f1 = (POW2(C.v_e) + POW2(C.a_e)) / 96;
+			Expr const f2 = (s*s_v + s1*s2) / (POW2(s - POW2(m_Z)) * (POW2(s_v - m_Z*m_Z) + POW2(m_Z*w_Z)));
+			Expr const Gs = f1*f2;
+			Expr X_S = XsectionGlobalFactor*p * 3 * Gs;
 			X_Ss.push_back(X_S);
 			X_Ss0.push_back(X_Ss.back().FixVariable(costheta));
 
 		}
 		{
-			DConst const cosThetaW2 = 1 - C.sinThetaW2;
-			DExpr const cosThetaW8 = POW4(cosThetaW2);
-			DExpr const f1 = cosThetaW8 / (s1s2*r);
-			DExpr const f2 = (h1 + 1)*(h2 + 1)*(2 / (POW2(h1) - 1) + 2 / (POW2(h2) - 1) - 6 * s2_x / r + (3 * t1*t2 / r - c_x)*L / sqrt(r));
-			DExpr const f3 = -(2 * t1 / (h2 - 1) + 2 * t2 / (h1 - 1) + (t1 + t2 + s2_x)*L / sqrt(r));
-			DExpr const G_W = f1*(f2 + f3);
+			Const const cosThetaW2 = 1 - C.sinThetaW2;
+			Expr const cosThetaW8 = POW4(cosThetaW2);
+			Expr const f1 = cosThetaW8 / (s1s2*r);
+			Expr const f2 = (h1 + 1)*(h2 + 1)*(2 / (POW2(h1) - 1) + 2 / (POW2(h2) - 1) - 6 * s2_x / r + (3 * t1*t2 / r - c_x)*L / sqrt(r));
+			Expr const f3 = -(2 * t1 / (h2 - 1) + 2 * t2 / (h1 - 1) + (t1 + t2 + s2_x)*L / sqrt(r));
+			Expr const G_W = f1*(f2 + f3);
 
-			DExpr X_W = XsectionGlobalFactor*p * G_W;
+			Expr X_W = XsectionGlobalFactor*p * G_W;
 			X_Ws.push_back(X_W);
 			X_Ws0.push_back(X_Ws.back().FixVariable(costheta));
 
@@ -403,7 +404,17 @@ void test_for() {
 		Formula f(c, 1);
 		int n = 10;
 		f.Init(10);
-		f.costheta.SetV(1);
+		f.eH.SetV(140);
+
+		f.costheta.SetV(0.01);
+		double y1 = f.X_Ws.at(0).V();
+		f.costheta.SetV(0);
+		double y0 = f.X_Ws.at(0).V();
+		double ypp = (y1 - y0) / (0.5*0.01*0.01);
+
+		TEST_SAME(f.X_Ws0.at(2).V(), ypp);
+		TEST_SAME(f.X_Ws.at(2).V(), ypp);
+
 		printf("nodes %d\n", (int)f.X_Ws.at(10).Nodes());
 		printf("nodes %d\n", (int)f.X_Ss.at(10).Nodes());
 		printf("nodes %d\n", (int)f.X_Is.at(10).Nodes());
@@ -424,12 +435,29 @@ void test_for() {
 
 }
 
+void testfunc() {
+	Var x("x", 0);
+	Func1 f(1 + x, x);
+	TEST_SAME(f(1), 2);
+}
+
+void test_int() {
+	Var t("t", 1);
+	Var x("x", 0);
+	Expr y = Integrate(x, Const(0), t, x*x*t);
+	TEST_SAME(y.V(), 1/3.0);
+	TEST_SAME(y.D(t).V(), 1 / 3.0 + 1);
+	printf("%s\n", y.D(t).ToString().c_str());
+}
+
+
 int main() {
 
 	test_Diff();
 	fix_var();
+	testfunc();
+	test_int();
 	test_for();
-
 
 	printf("%d test(s) failed\n", n_failed);
 	return 0;
