@@ -37,7 +37,6 @@ namespace Diff {
 		virtual Expr DoD(Var const &s) const = 0;
 		virtual void ToString(std::string &s) const = 0;
 		// expr can't have a reference to any parent of s
-		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		virtual Expr DoReplaceVariable(Var const &s, Expr const &expr) const = 0;
 		virtual ~DExprImpl();
 
@@ -54,11 +53,12 @@ namespace Diff {
 			if (fRef == 0) delete this;
 		}
 
+		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		mutable double fVMem;
 		mutable bool fVMemValid;
 		mutable std::vector<DExprImpl const*> fNodesMem;
 		mutable std::map<DExprImpl const *, Expr*> fDoDMem;
-		mutable std::map<std::pair<DVariableImpl const *, DExprImpl const *>, std::pair<int, Expr> > fReplaceMem;
+		mutable std::map<std::pair<DVariableImpl const *, DExprImpl const *>, std::pair<int, RebindableExpr> > fReplaceMem;
 		Expr DoDMem(Var const &s) const;
 		double VMem() const;
 
@@ -182,24 +182,6 @@ namespace Diff {
 		s.fImpl = nullptr;
 	}
 
-	Expr const &Expr::operator=(Expr const &s) {
-		if (&s != this) {
-			if (fImpl) fImpl->DecRef();
-			fImpl = s.fImpl;
-			if (fImpl) fImpl->IncRef();
-		}
-		return *this;
-	}
-
-	Expr const &Expr::operator=(Expr &&s) {
-		if (&s != this) {
-			if (fImpl) fImpl->DecRef();
-			fImpl = s.fImpl;
-			s.fImpl = nullptr;
-		}
-		return *this;
-	}
-
 	double Expr::V() const {
 		auto &nodes = fImpl->GetNodesMem();
 		for (auto &p : nodes) {
@@ -240,6 +222,28 @@ namespace Diff {
 	}
 
 	/****************************	DExpr	end *********************************************/
+
+	/****************************	RebindableExpr	begin  *********************************************/
+
+	RebindableExpr &RebindableExpr::operator=(Expr const &s) {
+		if (&s != this) {
+			if (fImpl) fImpl->DecRef();
+			fImpl = s.fImpl;
+			if (fImpl) fImpl->IncRef();
+		}
+		return *this;
+	}
+
+	RebindableExpr &RebindableExpr::operator=(Expr &&s) {
+		if (&s != this) {
+			if (fImpl) fImpl->DecRef();
+			fImpl = s.fImpl;
+			s.fImpl = nullptr;
+		}
+		return *this;
+	}
+	/****************************	RebindableExpr	end *********************************************/
+
 
 	/********************	DConstant	begin	*********************************/
 
@@ -866,13 +870,162 @@ namespace Diff {
 
 	};
 
+	static double gl_x_16points[] = {
+		0.0950125098376374,
+		0.2816035507792589,
+		0.4580167776572274,
+		0.6178762444026438,
+		0.7554044083550030,
+		0.8656312023878318,
+		0.9445750230732326,
+		0.9894009349916499,
+	};
+
+	static double gl_w_16points[] = {
+		0.1894506104550685,
+		0.1826034150449236,
+		0.1691565193950025,
+		0.1495959888165767,
+		0.1246289712555339,
+		0.0951585116824928,
+		0.0622535239386479,
+		0.0271524594117541,
+	};
+
+	template<class Functor>
+	double GaussianLegendre16Points(double x0, double x1, Functor const &f)
+	{
+		double delta = (x1 - x0) / 2;
+		double median = (x1 + x0) / 2;
+		double h = 0;
+		for (int i = 0; i < 8; ++i) {
+			double x = gl_x_16points[i] * delta + median;
+			h += f(x)*gl_w_16points[i];
+			x = -gl_x_16points[i] * delta + median;
+			h += f(x)*gl_w_16points[i];
+		}
+		h *= delta;
+		return h;
+	}
+
+	static double gl_x_64points[] = {
+		0.0243502926634244,
+		0.0729931217877990,
+		0.1214628192961206,
+		0.1696444204239928,
+		0.2174236437400071,
+		0.2646871622087674,
+		0.3113228719902110,
+		0.3572201583376681,
+		0.4022701579639916,
+		0.4463660172534641,
+		0.4894031457070530,
+		0.5312794640198946,
+		0.5718956462026340,
+		0.6111553551723933,
+		0.6489654712546573,
+		0.6852363130542333,
+		0.7198818501716109,
+		0.7528199072605319,
+		0.7839723589433414,
+		0.8132653151227975,
+		0.8406292962525803,
+		0.8659993981540928,
+		0.8893154459951141,
+		0.9105221370785028,
+		0.9295691721319396,
+		0.9464113748584028,
+		0.9610087996520538,
+		0.9733268277899110,
+		0.9833362538846260,
+		0.9910133714767443,
+		0.9963401167719553,
+		0.9993050417357722,
+	};
+
+	static double gl_w_64points[] = {
+		0.0486909570091397203833654,
+		0.0485754674415034269347991,
+		0.0483447622348029571697695,
+		0.0479993885964583077281262,
+		0.0475401657148303086622822,
+		0.0469681828162100173253263,
+		0.0462847965813144172959532,
+		0.0454916279274181444797710,
+		0.0445905581637565630601347,
+		0.0435837245293234533768279,
+		0.0424735151236535890073398,
+		0.0412625632426235286101563,
+		0.0399537411327203413866569,
+		0.0385501531786156291289625,
+		0.0370551285402400460404151,
+		0.0354722132568823838106931,
+		0.0338051618371416093915655,
+		0.0320579283548515535854675,
+		0.0302346570724024788679741,
+		0.0283396726142594832275113,
+		0.0263774697150546586716918,
+		0.0243527025687108733381776,
+		0.0222701738083832541592983,
+		0.0201348231535302093723403,
+		0.0179517157756973430850453,
+		0.0157260304760247193219660,
+		0.0134630478967186425980608,
+		0.0111681394601311288185905,
+		0.0088467598263639477230309,
+		0.0065044579689783628561174,
+		0.0041470332605624676352875,
+		0.0017832807216964329472961,
+	};
+
+	template<int b, int n, class Functor>
+	struct GaussianLegendreSum {
+
+		static double Sum(double delta, double median, Functor const &f) {
+			return GaussianLegendreSum<b, n / 2, Functor>::Sum(delta, median, f) + GaussianLegendreSum<b + n / 2, n / 2, Functor>::Sum(delta, median, f);
+		}
+
+	};
+	template<int b, class Functor>
+	struct GaussianLegendreSum<b, 1, Functor> {
+
+		static double Sum(double delta, double median, Functor const &f) {
+			double x = (b < 32 ? -gl_x_64points[31 - b] : gl_x_64points[b - 32])*delta + median;
+			double w = (b < 32 ? gl_w_64points[31 - b] : gl_w_64points[b - 32]);
+			return f(x)*w;
+		}
+
+	};
+
+	template<class Functor>
+	double GaussianLegendre64Points(double x0, double x1, Functor const &f)
+	{
+		double delta = (x1 - x0) / 2;
+		double median = (x1 + x0) / 2;
+		double h = 0;
+#if 0
+		for (int i = 0; i < 32; ++i) {
+			double x = gl_x_64points[i] * delta + median;
+			h += f(x)*gl_w_64points[i];
+			x = -gl_x_64points[i] * delta + median;
+			h += f(x)*gl_w_64points[i];
+		}
+#else
+		// no more precision from numerical experiments
+		h += GaussianLegendreSum<0, 64, Functor>::Sum(delta, median, f);
+#endif
+		h *= delta;
+		return h;
+	}
+
+
 	struct IntegralImpl : DExprImpl {
 		Var fX;
 		Expr fX0;
 		Expr fX1;
 		Expr fY;
 
-		IntegralImpl(Var const &s1, Expr const &s2, Expr const &s3, Expr const &s4) : fX(s1), fX0(s2), fX1(s3), fY(s4) {
+		IntegralImpl(Var const &s1, Expr const &s2, Expr const &s3, Expr const &s4) : fX(0.0), fX0(s2), fX1(s3), fY(s4.ReplaceVariable(s1, fX)) {
 		}
 
 		void AddNode(std::set<DExprImpl const*> &nodes) const override
@@ -886,19 +1039,10 @@ namespace Diff {
 
 		double DoV() const
 		{
-			double x0 = fX0.W();
-			double y0 = fX1.W();
-			double dx = (y0 - x0)/ 1000;
-			double h = 0;
-
-			for (int i = 0; i < 1000; ++i) {
-				double x = x0 + (i + 0.5)*dx;
+			return GaussianLegendre64Points(fX0.W(), fX1.W(), [&](double x) {
 				fX.SetV(x);
-				double y = fY.V();
-				h += y;
-			}
-			h *= dx;
-			return h;
+				return fY.V();
+			});
 		}
 
 
@@ -909,12 +1053,13 @@ namespace Diff {
 			if (x0_.fImpl == fX0.fImpl && x1_.fImpl == fX1.fImpl && y_.fImpl == fY.fImpl) {
 				return *this;
 			}
+			return Integrate(fX, x0_, x1_, y_);
 		}
 
 
 		Expr DoD(Var const &s) const
 		{
-			Expr d0;
+			RebindableExpr d0;
 			Expr dx0 = fX0.D(s);
 			if (dx0.fImpl->IsConst() && dx0.W() == 0) {
 				d0 = Const(0);
@@ -922,7 +1067,7 @@ namespace Diff {
 				d0 = -dx0 * fY.ReplaceVariable(fX, fX0);
 			}
 
-			Expr d1;
+			RebindableExpr d1;
 			Expr dx1 = fX1.D(s);
 			if (dx1.fImpl->IsConst() && dx1.W() == 0) {
 				d1 = Const(0);
@@ -1058,11 +1203,6 @@ namespace Diff {
 			return Const(std::cosh(s.fImpl->DoV()));
 		}
 		return *new DCosh(s);
-	}
-
-	Expr Integrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y)
-	{
-		return *new IntegralImpl(CastToVar(x), from, to, y);
 	}
 
 	Expr Integrate(Var const &x, Expr const &from, Expr const &to, Expr const &y)

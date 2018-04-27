@@ -23,8 +23,9 @@ namespace Diff {
 		Expr() : fImpl(nullptr) { }
 		Expr(Expr const &s);
 		Expr(Expr &&s);
-		Expr const &operator=(Expr const &s);
-		Expr const &operator=(Expr &&s);
+		// rebind is not allowed
+		Expr &operator=(Expr const &s) = delete;
+		Expr &operator=(Expr &&) = delete;
 		~Expr();
 
 		// evaluate the value
@@ -32,15 +33,6 @@ namespace Diff {
 		// make a Expression object reprent the differential respect` s`
 		// `s` must be handler of Variable object
 		Expr D(Expr const &s) const;
-
-
-		// same as V()
-		double operator()() const { return V(); }
-
-		// return the value of last call of V()
-		// please call V() at once
-		double W() const;
-
 		// same as D(Expr const &)
 		Expr D(Var const &s) const;
 
@@ -56,8 +48,6 @@ namespace Diff {
 
 		// make a variable to constant
 		Expr FixVariable(Var const &s) const;
-		// make a variable to constant
-		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 
 		// return string for debug
 		// all sub expression will expanded
@@ -65,8 +55,24 @@ namespace Diff {
 		std::string ToString() const;
 
 		//private:
+		// return the value of last call of V()
+		// please call V() at once
+		double W() const;
+		// make a variable to constant
+		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		Expr(DExprImpl const &impl);
 		DExprImpl const *fImpl;
+	};
+
+	struct RebindableExpr : Expr {
+		// bind nothing
+		RebindableExpr()  { }
+		RebindableExpr(RebindableExpr const &s) : Expr(s) { }
+		RebindableExpr(RebindableExpr &&s) : Expr(std::move(s)) { }
+		// rebind is not allowed
+		RebindableExpr &operator=(Expr const &s);
+		RebindableExpr &operator=(Expr &&);
+
 	};
 
 	// a handler of Constant object
@@ -77,6 +83,7 @@ namespace Diff {
 
 		Const(Const const &s) : Expr(s) { }
 		Const(Const &&s) : Expr(std::move(s)) { }
+		// rebind is not allowed
 		Const &operator=(Const const &s) = delete;
 		Const &operator=(Const &&s) = delete;
 	private:
@@ -143,8 +150,15 @@ namespace Diff {
 	inline Expr pow2(Expr const &s) { return pow(s, 2); }
 	inline Expr pow4(Expr const &s) { return pow(s, 4); }
 	// int_from^to dx y
-	Expr Integrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y);
 	Expr Integrate(Var const &x, Expr const &from, Expr const &to, Expr const &y);
+	inline Expr Integrate(Var const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
+	inline Expr Integrate(Var const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
+	inline Expr Integrate(Var const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
+
+	inline Expr Integrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y) { return Integrate(CastToVar(x), from, to, y); }
+	inline Expr Integrate(Expr const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
+	inline Expr Integrate(Expr const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
+	inline Expr Integrate(Expr const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
 
 	inline Expr operator+(Expr const &s1, double s2) {
 		return s1 + Const(s2);

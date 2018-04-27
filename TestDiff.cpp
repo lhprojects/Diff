@@ -4,12 +4,12 @@ using namespace Diff;
 
 #include <math.h>
 #define TPrintf printf
-
+const double PI = 3.1415926535897932384626433;
 
 static int n_failed = 0;
 #define TEST_SAME(x, y) do { double x_ = (x); double y_ = (y);\
-	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; TPrintf("FAILED: " #x " (%f) == " #y " (%f)\n", x_, y_);}   } while(0)
-#define TEST_TRUE(x) do { double x_ = (x); if(!x_)  { n_failed++; TPrintf("FAILED: " #x "\n");}   } while(0)
+	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x " (%f) == " #y " (%f)\n", __func__, __LINE__, x_, y_); }   } while(0)
+#define TEST_TRUE(x) do { double x_ = (x); if(!x_)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x "\n", __func__, __LINE__);}   } while(0)
 
 void test_Diff() {
 
@@ -135,6 +135,7 @@ void test_Diff() {
 	}
 
 	{
+		
 		Var x("x", 2);
 		TPrintf("x+x          : %s\n", (x + x).ToString().c_str());
 		TPrintf("x-x          : %s\n", (x - x).ToString().c_str());
@@ -205,8 +206,8 @@ void fix_var() {
 	TEST_TRUE(DCount.size() <= 3);
 
 }
-double POW2(double x) { return x*x; }
-double POW4(double x) { return x*x*x*x; }
+inline double POW2(double x) { return x*x; }
+inline double POW4(double x) { return x*x*x*x; }
 
 typedef double Float;
 struct Constants
@@ -442,6 +443,27 @@ void testfunc() {
 }
 
 void test_int() {
+
+	{
+		Var x = 0;
+		TEST_SAME(Integrate(x, 0, 1, x*x).V(), 1./3);
+		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x, 0, 1, x*x).V()-1/3.0);
+		TEST_SAME(Integrate(x, 0, PI, sin(x)).V(), 2);
+		printf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(x, 0, PI, sin(x)).V()-2);
+		printf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(x, 0, 3*PI, sin(x)).V() - 2);
+		printf("Integrate(x, 0,  9PI, sin(x))-2: %+e\n", Integrate(x, 0, 9*PI, sin(x)).V() - 2);
+		printf("Integrate(x, 0, 17PI, sin(x))-2: %+e\n", Integrate(x, 0, 17*PI, sin(x)).V() - 2);
+		printf("Integrate(x, 0, 33PI, sin(x))-2: %+e\n", Integrate(x, 0, 33*PI, sin(x)).V() - 2);
+		printf("Integrate(x, 0, 65PI, sin(x))-2: %+e\n", Integrate(x, 0, 65 * PI, sin(x)).V() - 2);
+		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(x, 0, 129* PI, sin(x)).V() - 2);
+		TEST_SAME(Integrate(x, 0, 1, exp(-x)).V(), 1 - exp(-1));
+		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(x, 0, 1, exp(-x)).V() - (1 - exp(-1)));
+		TEST_SAME(Integrate(x, 0, 1, exp(x)).V(), exp(1) - 1);
+		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(x, 0, 1, exp(x)).V() - (exp(1)-1));	
+		TEST_SAME(Integrate(x, 0, 1, sqrt(x)).V(), 2/3.0);
+		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.): %.20f\n", Integrate(x, 0, 1, sqrt(x)).V() - (2 / 3.0));
+	}
+
 	Var t("t", 1);
 	Var x("x", 0);
 	Expr y = Integrate(x, Const(0), t, x*x*t);
