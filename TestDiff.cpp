@@ -523,7 +523,7 @@ void test_code()
 		{
 			{
 				char b[1024];
-				sprintf(b, "../../X_Ws_D%d.h", i);
+				sprintf(b, "X_Ws_D%d.h", i);
 				FILE *file = fopen(b, "w");
 
 				CCode ccode = f.X_Ws.at(i).ToCCode();
@@ -538,7 +538,7 @@ void test_code()
 			}
 			{
 				char b[1024];
-				sprintf(b, "../../X_Ws_D%d_avx.h", i);
+				sprintf(b, "X_Ws_D%d_avx.h", i);
 				FILE *file = fopen(b, "w");
 
 				CCode ccode = f.X_Ws.at(i).ToAVXCode();
