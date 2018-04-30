@@ -2,6 +2,7 @@
 #include "Func.h"
 #include <chrono>
 #include <math.h>
+#include <cmath>
 using namespace Diff;
 //#define TEST_CCODE
 
@@ -465,25 +466,56 @@ void test_int() {
 	printf("%s\n", y.D(t).ToString().c_str());
 }
 
-__m256d _mm256_log_pd(__m256d x) {
-	__m256d r;
-	r.m256d_f64[0] = log(x.m256d_f64[0]);
-	r.m256d_f64[1] = log(x.m256d_f64[1]);
-	r.m256d_f64[2] = log(x.m256d_f64[2]);
-	r.m256d_f64[3] = log(x.m256d_f64[3]);
-	return r;
-}
 
-__m256d _mm256_pow_pd(__m256d x, double n) {
-	__m256d r;
-	r.m256d_f64[0] = pow(x.m256d_f64[0], n);
-	r.m256d_f64[1] = pow(x.m256d_f64[1], n);
-	r.m256d_f64[2] = pow(x.m256d_f64[2], n);
-	r.m256d_f64[3] = pow(x.m256d_f64[3], n);
-	return r;
-}
 
 #ifdef TEST_CCODE
+#include <immintrin.h>
+
+double hsum(__m256d x) {
+#ifdef _MSC_VER
+	__declspec(align(32)) double a[4] = { };//MSVC
+#else
+	__attribute__((aligned(32))) double a[4] = { };//GCC, ICC
+#endif
+       	_mm256_store_pd(a, x);
+	return a[0] + a[1] + a[2] + a[3];
+}
+
+__m256d _mm256_log_pd(__m256d x)
+{
+#ifdef _MSC_VER
+__declspec(align(32)) double a[4] = { };//MSVC
+#else
+__attribute__((aligned(32))) double a[4] = { };//GCC, ICC
+#endif
+
+	_mm256_store_pd(a, x);
+	a[0] = log(a[0]);
+	a[1] = log(a[1]);
+	a[2] = log(a[2]);
+	a[3] = log(a[3]);
+	return _mm256_load_pd(a);
+}
+
+__m256d _mm256_pow_pd(__m256d x,double n)
+{
+#ifdef _MSC_VER
+__declspec(align(32)) double a[4] = { };//MSVC
+#else
+__attribute__((aligned(32))) double a[4] = { };//GCC, ICC
+#endif
+
+	_mm256_store_pd(a, x);
+	a[0] = pow(a[0], n);
+	a[1] = pow(a[1], n);
+	a[2] = pow(a[2], n);
+	a[3] = pow(a[3], n);
+	return _mm256_load_pd(a);
+}
+
+
+
+
 #include "X_Ws_D0.h"
 #include "X_Ws_D1.h"
 #include "X_Ws_D2.h"
@@ -590,10 +622,7 @@ void test_code()
 					__m256d ev = _mm256_set1_pd(140);
 					__m256d tv = _mm256_set_pd(theta, theta + delta, theta + 2* delta, theta + 3* delta);
 					__m256d sumv = ptr_avx[i](ev, tv);
-					sum += sumv.m256d_f64[0];
-					sum += sumv.m256d_f64[1];
-					sum += sumv.m256d_f64[2];
-					sum += sumv.m256d_f64[3];
+					sum += hsum(sumv);
 					theta += delta;
 					theta += delta;
 					theta += delta;

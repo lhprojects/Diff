@@ -2,7 +2,6 @@
 #include <map>
 #include <typeinfo>
 #include <cmath>
-#include <mmintrin.h>
 
 namespace Diff {
 
