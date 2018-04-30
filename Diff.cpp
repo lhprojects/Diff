@@ -83,7 +83,7 @@ namespace Diff {
 		mutable double fVMem;
 		mutable bool fVMemValid;
 		mutable std::vector<DExprImpl const*> fNodesMem;
-		mutable std::map<DExprImpl const *, Expr*> fDoDMem;
+		mutable std::map<uint64_t, RebindableExpr> fDoDMem;
 		mutable std::map<std::pair<uint64_t, uint64_t>, std::pair<int, RebindableExpr> > fReplaceMem;
 		Expr DoDMem(Var const &s) const;
 		double VMem() const;
@@ -116,11 +116,11 @@ namespace Diff {
 	Expr DExprImpl::DoDMem(Var const & s) const
 	{
 #if 1
-		auto &p = fDoDMem[s.fImpl];
-		if (p == nullptr) {
-			p = new Expr(DoD(s));
+		auto &p = fDoDMem[s.Uid()];
+		if (p.Empty()) {
+			p = DoD(s);
 		}
-		return *p;
+		return p;
 #else
 		return DoD(s);
 #endif
@@ -165,11 +165,6 @@ namespace Diff {
 		} else {
 			DCount.erase(it);
 		}
-
-		for (auto &p : fDoDMem) {
-			delete p.second;
-		}
-		fDoDMem.clear();
 		
 		//fReplaceMem.clear();
 

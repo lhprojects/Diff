@@ -31,6 +31,7 @@ namespace Diff {
 		Expr &operator=(Expr &&) = delete;
 		~Expr();
 
+		bool Empty() const { return fImpl == nullptr; }
 		// evaluate the value
 		double V() const;
 		// make a Expression object reprent the differential respect` s`

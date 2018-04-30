@@ -438,12 +438,20 @@ void testfunc() {
 
 void test_int() {
 
-	{
+	{ // basic test
 		Var x = 0;
 		TEST_SAME(Integrate(x, 0, 1, x*x).V(), 1. / 3);
 		TEST_SAME(IntegrateOpen(x, Const(0), Const(1), x*x).V(), 1. / 3);
-		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x, 0, 1, x*x).V()-1/3.0);
+		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x, 0, 1, x*x).V() - 1 / 3.0);
+		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", IntegrateOpen(x, Const(0), Const(1), x*x).V() - 1 / 3.0);
+	}
 
+	{ // test for precision
+		Var x = 0;
+		TEST_SAME(Integrate(x, 0, 1, exp(-x)).V(), 1 - exp(-1));
+		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(x, 0, 1, exp(-x)).V() - (1 - exp(-1)));
+		TEST_SAME(Integrate(x, 0, 1, exp(x)).V(), exp(1) - 1);
+		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(x, 0, 1, exp(x)).V() - (exp(1) - 1));
 		TEST_SAME(Integrate(x, 0, PI, sin(x)).V(), 2);
 		printf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(x, 0, PI, sin(x)).V()-2);
 		printf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(x, 0, 3*PI, sin(x)).V() - 2);
@@ -452,21 +460,31 @@ void test_int() {
 		printf("Integrate(x, 0, 33PI, sin(x))-2: %+e\n", Integrate(x, 0, 33*PI, sin(x)).V() - 2);
 		printf("Integrate(x, 0, 65PI, sin(x))-2: %+e\n", Integrate(x, 0, 65 * PI, sin(x)).V() - 2);
 		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(x, 0, 129* PI, sin(x)).V() - 2);
-		TEST_SAME(Integrate(x, 0, 1, exp(-x)).V(), 1 - exp(-1));
-		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(x, 0, 1, exp(-x)).V() - (1 - exp(-1)));
-		TEST_SAME(Integrate(x, 0, 1, exp(x)).V(), exp(1) - 1);
-		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(x, 0, 1, exp(x)).V() - (exp(1)-1));	
-		TEST_SAME(Integrate(x, 0, 1, sqrt(x)).V(), 2/3.0);
+	}
+
+	{ // the singularity
+		Var x = 0;
+		TEST_SAME(Integrate(x, 0, 1, sqrt(x)).V(), 2 / 3.0);
 		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.): %.20f\n", Integrate(x, 0, 1, sqrt(x)).V() - (2 / 3.0));
+	}
+
+	{
+		Var x("x", 0);
+		Expr y = Integrate(x, Const(0), 1, 1/sqrt(x));
+		TEST_SAME(y.V(), 2);
 	}
 
 	{
 		Var t("t", 1);
 		Var x("x", 0);
 		Expr y = Integrate(x, Const(0), t, x*x*t);
+		Expr yopen = IntegrateOpen(x, Const(0), t, x*x*t);
 		TEST_SAME(y.V(), 1 / 3.0);
 		TEST_SAME(y.D(t).V(), 1 / 3.0 + 1);
-		printf("%s\n", y.D(t).ToString().c_str());
+		TEST_SAME(yopen.D(t).V(), 1 / 3.0 + 1);
+		printf("dy/dt %s\n", y.D(t).ToString().c_str());
+		printf("dy/dt - 4/3 %e\n", y.D(t).V() - 4 / 3.);
+		printf("dy/dt(open) - 4/3 %e\n", yopen.D(t).V() - 4 / 3.);
 	}
 }
 
