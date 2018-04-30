@@ -1,4 +1,5 @@
 #include "Diff.h"
+#include "Num.h"
 #include <map>
 #include <typeinfo>
 #include <cmath>
@@ -38,6 +39,7 @@ namespace Diff {
 	{
 		virtual void AddNode(std::set<DExprImpl const*> &nodes) const = 0;
 		virtual double DoV() const = 0;
+		virtual Num DoVE() const = 0;
 		virtual Expr DoD(Var const &s) const = 0;
 		virtual void ToString(std::string &s) const = 0;
 		virtual void DoToCCode(std::string &sb) const = 0;
@@ -81,12 +83,21 @@ namespace Diff {
 		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 
 		mutable double fVMem;
+		mutable Num fVEMem;
 		mutable bool fVMemValid;
 		mutable std::vector<DExprImpl const*> fNodesMem;
 		mutable std::map<uint64_t, RebindableExpr> fDoDMem;
 		mutable std::map<std::pair<uint64_t, uint64_t>, std::pair<int, RebindableExpr> > fReplaceMem;
 		Expr DoDMem(Var const &s) const;
 		double VMem() const;
+
+		Num VEMem() const {
+			if (!fVMemValid) {
+				fVEMem = DoVE();
+				fVMemValid = true;
+			}
+			return fVEMem;
+		}
 
 		std::vector<DExprImpl const*> const & GetNodesMem() const {
 			if (fNodesMem.size() == 0) {
@@ -103,7 +114,7 @@ namespace Diff {
 
 	};
 
-	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false), fUid(guid++)
+	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false), fUid(guid++), fVEMem(0, 0, 0)
 	{
 		fRef = 0;
 		DCount.insert(this);
@@ -211,10 +222,13 @@ namespace Diff {
 		return fImpl->VMem();
 	};
 
-	double Expr::W() const {
-		return fImpl->VMem();
+	Num Expr::VE() const {
+		auto &nodes = fImpl->GetNodesMem();
+		for (auto &p : nodes) {
+			p->fVMemValid = false;
+		}
+		return fImpl->VEMem();
 	};
-
 
 	Expr Expr::D(Var const &s) const {
 		return fImpl->DoDMem(s);
@@ -315,11 +329,16 @@ namespace Diff {
 	struct DConstant : DExprImpl
 	{
 		double const fV;
+		Num const fVE;
 
-		DConstant(double v) : DExprImpl(ExprType::Const), fV(v) { }
+		DConstant(double v) : DExprImpl(ExprType::Const), fV(v), fVE(v, 0, 0) { }
 
-		virtual double DoV() const override {
+		double DoV() const override {
 			return fV;
+		}
+
+		Num DoVE() const override {
+			return fVE;
 		}
 
 
@@ -408,15 +427,20 @@ namespace Diff {
 	/********************	DVariableImpl	begin	*********************************/
 	struct DVariableImpl : DExprImpl
 	{
+		Num fVE;
 		double fV;
 		std::string const fName;
-		DVariableImpl(double v) : DExprImpl(ExprType::Variable), fV(v) { }
-		DVariableImpl(std::string const &name, double v) : DExprImpl(ExprType::Variable), fV(v), fName(name) { }
+		DVariableImpl(double v) : DVariableImpl(std::string(), v) { }
+		DVariableImpl(std::string const &name, double v) : DExprImpl(ExprType::Variable),
+			fV(v), fVE(v, 0, 0), fName(name) { }
 		void SetV(double v) {
 			fV = v;
+			fVE = Num(v, 0, 0);
 		}
 
 		double DoV() const override { return fV; }
+		Num DoVE() const override { return fVE; }
+
 		Expr DoD(Var const &s) const override;
 
 		void AddNode(std::set<DExprImpl const*> &nodes) const override {
@@ -557,7 +581,11 @@ namespace Diff {
 
 		using DUnitaryFunction::DUnitaryFunction;
 		double DoV() const override {
-			return std::sqrt(f1.W());
+			return std::sqrt(f1.fImpl->VMem());
+		}
+
+		Num DoVE() const override {
+			return sqrt(f1.fImpl->VEMem());
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -614,7 +642,11 @@ namespace Diff {
 
 		using DUnitaryFunction::DUnitaryFunction;
 		double DoV() const override {
-			return std::log(f1.W());
+			return std::log(f1.fImpl->VMem());
+		}
+
+		Num DoVE() const override {
+			return log(f1.fImpl->VEMem());
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -686,12 +718,17 @@ namespace Diff {
 
 		double DoV() const override {
 			if (fN == 0) return 1;
-			else if (fN == 1) return f1.W();
-			else if (fN == 2) return f1.W()*f1.W();
-			else if (fN == 0.5) return std::sqrt(f1.W());
-			else if (fN == -0.5) return 1 / std::sqrt(f1.W());
-			return std::pow(f1.W(), fN);
+			else if (fN == 1) return f1.fImpl->VMem();
+			else if (fN == 2) return f1.fImpl->VMem()*f1.fImpl->VMem();
+			else if (fN == 0.5) return std::sqrt(f1.fImpl->VMem());
+			else if (fN == -0.5) return 1 / std::sqrt(f1.fImpl->VMem());
+			return std::pow(f1.fImpl->VMem(), fN);
 		}
+
+		Num DoVE() const override {
+			return pow(f1.fImpl->VEMem(), fN);
+		}
+
 
 		Expr DoD(Var const &s) const override {
 			if (fN == 0) return Zero();
@@ -882,7 +919,11 @@ namespace Diff {
 		using DUnitaryFunction::DUnitaryFunction;
 
 		double DoV() const override {
-			return std::exp(f1.W());
+			return std::exp(f1.fImpl->VMem());
+		}
+
+		Num DoVE() const override {
+			return exp(f1.fImpl->VEMem());
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -943,9 +984,14 @@ namespace Diff {
 		using DUnitaryFunction::DUnitaryFunction;
 
 
-		virtual double DoV() const override {
-			return std::sin(f1.W());
+		double DoV() const override {
+			return std::sin(f1.fImpl->VMem());
 		}
+
+		Num DoVE() const override {
+			return sin(f1.fImpl->VEMem());
+		}
+
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
 			auto f = f1.ReplaceVariable(s, expr);
@@ -1003,9 +1049,14 @@ namespace Diff {
 
 		using DUnitaryFunction::DUnitaryFunction;
 
-		virtual double DoV() const override {
-			return std::cos(f1.W());
+		double DoV() const override {
+			return std::cos(f1.fImpl->VMem());
 		}
+
+		Num DoVE() const override {
+			return cos(f1.fImpl->VEMem());
+		}
+
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
 			auto f = f1.ReplaceVariable(s, expr);
@@ -1063,8 +1114,9 @@ namespace Diff {
 	{
 
 		using DUnitaryFunction::DUnitaryFunction;
-		virtual double DoV() const override {
-			return std::sinh(f1.W());
+		
+		double DoV() const override {
+			return std::sinh(f1.fImpl->VMem());
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -1073,6 +1125,10 @@ namespace Diff {
 				return *this;
 			}
 			return sin(f);
+		}
+
+		Num DoVE() const override {
+			return sinh(f1.fImpl->VEMem());
 		}
 
 		Expr DoD(Var const &s) const override
@@ -1123,7 +1179,11 @@ namespace Diff {
 		using DUnitaryFunction::DUnitaryFunction;
 
 		double DoV() const override {
-			return std::cosh(f1.W());
+			return std::cosh(f1.fImpl->VMem());
+		}
+
+		Num DoVE() const override {
+			return cosh(f1.fImpl->VEMem());
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -1205,7 +1265,11 @@ namespace Diff {
 		using DBinaryFunction::DBinaryFunction;
 
 		double DoV() const override {
-			return f1.W() + f2.W();
+			return f1.fImpl->VMem() + f2.fImpl->VMem();
+		}
+
+		Num DoVE() const override {
+			return f1.fImpl->VEMem() + f2.fImpl->VEMem();
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -1272,7 +1336,11 @@ namespace Diff {
 		using DBinaryFunction::DBinaryFunction;
 
 		double DoV() const override {
-			return f1.W() - f2.W();
+			return f1.fImpl->VMem() - f2.fImpl->VMem();
+		}
+
+		Num DoVE() const override {
+			return f1.fImpl->VEMem() - f2.fImpl->VEMem();
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -1347,8 +1415,13 @@ namespace Diff {
 		using DBinaryFunction::DBinaryFunction;
 
 		double DoV() const override {
-			return f1.W() * f2.W();
+			return f1.fImpl->VMem() * f2.fImpl->VMem();
 		}
+
+		Num DoVE() const override {
+			return f1.fImpl->VEMem() * f2.fImpl->VEMem();
+		}
+
 
 		Expr DoD(Var const &s) const override {
 			if (f1.fImpl->IsConst()) return f1* f2.D(s);
@@ -1425,8 +1498,14 @@ namespace Diff {
 		using DBinaryFunction::DBinaryFunction;
 
 		double DoV() const override {
-			return f1.W() / f2.W();
+			return f1.fImpl->VMem() / f2.fImpl->VMem();
 		}
+
+
+		Num DoVE() const override {
+			return f1.fImpl->VEMem() / f2.fImpl->VEMem();
+		}
+
 
 		Expr DoD(Var const &s) const override {
 			return f1.D(s) / f2 - f1*f2.D(s) *pow(f2, -2);
@@ -1643,10 +1722,19 @@ namespace Diff {
 
 		double DoV() const
 		{
-			return GaussianLegendre64Points(fX0.W(), fX1.W(), [&](double x) {
+			return GaussianLegendre64Points(fX0.fImpl->VMem(), fX1.fImpl->VMem(), [&](double x) {
 				fX.SetV(x);
 				return fY.V();
 			});
+		}
+
+
+		Num DoVE() const override {
+			double v = GaussianLegendre64Points(fX0.fImpl->VMem(), fX1.fImpl->VMem(), [&](double x) {
+				fX.SetV(x);
+				return fY.V();
+			});
+			return Num(v, 0, 0);
 		}
 
 
@@ -1665,7 +1753,7 @@ namespace Diff {
 		{
 			RebindableExpr d0;
 			Expr dx0 = fX0.D(s);
-			if (dx0.fImpl->IsConst() && dx0.W() == 0) {
+			if (dx0.fImpl->IsConst() && dx0.fImpl->VMem() == 0) {
 				d0 = Const(0);
 			} else {
 				d0 = -dx0 * fY.ReplaceVariable(fX, fX0);
@@ -1673,7 +1761,7 @@ namespace Diff {
 
 			RebindableExpr d1;
 			Expr dx1 = fX1.D(s);
-			if (dx1.fImpl->IsConst() && dx1.W() == 0) {
+			if (dx1.fImpl->IsConst() && dx1.fImpl->VMem() == 0) {
 				d1 = Const(0);
 			} else {
 				d1 = dx1 * fY.ReplaceVariable(fX, fX1);

@@ -13,19 +13,13 @@ using namespace Diff;
 #define TPrintf printf
 const double PI = 3.1415926535897932384626433;
 
+static int n_total = 0;
 static int n_failed = 0;
-#define TEST_SAME(x, y) do { double x_ = (x); double y_ = (y);\
+#define TEST_SAME(x, y) do { n_total++; double x_ = (x); double y_ = (y);\
 	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x " (%f) == " #y " (%f)\n", __func__, __LINE__, x_, y_); }   } while(0)
-#define TEST_TRUE(x) do { double x_ = (x); if(!x_)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x "\n", __func__, __LINE__);}   } while(0)
+#define TEST_TRUE(x) do { n_total++; double x_ = (x); if(!x_)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x "\n", __func__, __LINE__);}   } while(0)
 
-void test_Diff() {
-
-
-	TEST_TRUE(DCount.size() == 0);
-	{
-		Var x = 4;
-		TEST_SAME(sqrt(x).D(x).V(), 0.5 / sqrt(x.V()));
-	}
+void test_V() {
 
 	{
 		Var three = 3;
@@ -34,10 +28,26 @@ void test_Diff() {
 		TEST_SAME((three + three).V(), 6);
 		TEST_SAME((three - three).V(), 0);
 		TEST_SAME((three / three).V(), 1);
+		TEST_SAME(log(three).V(), log(3));
+
+		TEST_SAME(three.VE().V(), 3);
+		TEST_SAME((three * three).VE().V(), 9);
+		TEST_SAME((three + three).VE().V(), 6);
+		TEST_SAME((three - three).VE().V(), 0);
+		TEST_SAME((three / three).VE().V(), 1);
+		TEST_SAME(log(three).VE().V(), log(3));
+
+		printf("log(3) %e", log(three).VE().E1());
 	}
+
+}
+void test_Diff() {
+
+
 
 	{
 		Var x = 4;
+
 		TEST_SAME(x.D(x).V(), 1);
 		TEST_SAME((x * x).D(x).V(), 2 * x.V());
 		TEST_SAME((x + x).D(x).V(), 2);
@@ -66,6 +76,10 @@ void test_Diff() {
 		TEST_SAME(POW4(x).V(), (x*x*x*x).V());
 		TEST_SAME(POW4(x).D(x).V(), (x*x*x*x).D(x).V());
 
+	}
+	{
+		Var x = 4;
+		TEST_SAME(sqrt(x).D(x).V(), 0.5 / sqrt(x.V()));
 	}
 
 	{ // exp
@@ -411,8 +425,15 @@ void test_for() {
 		double y0 = f.X_Ws.at(0).V();
 		double ypp = (y1 - y0) / (0.5*0.01*0.01);
 
+		// test fixvariable
 		TEST_SAME(f.X_Ws0.at(2).V(), ypp);
 		TEST_SAME(f.X_Ws.at(2).V(), ypp);
+		TEST_SAME(f.X_Ws.at(2).VE().V(), f.X_Ws.at(2).V());
+
+		for (int i = 0; i < 10; ++i) {
+			printf("d%d %+e +- %e +- %e\n", i, 
+				f.X_Ws.at(i).VE().V(), f.X_Ws.at(i).VE().E1(), f.X_Ws.at(i).VE().SqrtE2());
+		}
 
 		printf("nodes %d\n", (int)f.X_Ws.at(10).Nodes());
 		printf("nodes %d\n", (int)f.X_Ss.at(10).Nodes());
@@ -472,9 +493,9 @@ void test_int() {
 	}
 
 	{
-		Var x("x", 0);
-		Expr y = Integrate(x, Const(0), 1, 1/sqrt(x));
-		TEST_SAME(y.V(), 2);
+		//Var x("x", 0);
+		//Expr y = Integrate(x, Const(0), 1, 1/sqrt(x));
+		//TEST_SAME(y.V(), 2);
 	}
 
 	{
@@ -624,26 +645,34 @@ void test_code()
 			X_Ws_D3, X_Ws_D4, X_Ws_D5, X_Ws_D6 };
 		__m256d(*ptr_avx[])(__m256d, __m256d) = { X_Ws_D0_avx, X_Ws_D1_avx, X_Ws_D2_avx,
 			X_Ws_D3_avx, X_Ws_D4_avx, X_Ws_D5_avx, X_Ws_D6_avx };
-
+#endif
 		double delta = 0.00001;
 		int Nj = (int)(1 / delta) - 10;
 		for (int i = 0; i <= NMax; ++i) {
+			int Njj = Nj;
+			if (i >= 3) Njj = Nj / 10;
+
+#ifdef TEST_CCODE
+
 			{
 				auto t0 = std::chrono::high_resolution_clock::now();
 				double sum = 0;
 				double theta = 0;
-				for (int j = 0; j < Nj; ++j) {
+				for (int j = 0; j < Njj; ++j) {
 					sum += ptr[i](140, theta);
 					theta += delta;
 				}
 				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
-				printf("cpp order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+				if (i >= 3)
+					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+				else
+					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
 			}
 			{
 				auto t0 = std::chrono::high_resolution_clock::now();
 				double sum = 0;
 				double theta = 0;
-				for (int j = 0; j < Nj; j += 4) {
+				for (int j = 0; j < Njj; j += 4) {
 					__m256d ev = _mm256_set1_pd(140);
 					__m256d tv = _mm256_set_pd(theta, theta + delta, theta + 2* delta, theta + 3* delta);
 					__m256d sumv = ptr_avx[i](ev, tv);
@@ -654,22 +683,45 @@ void test_code()
 					theta += delta;
 				}
 				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
-				printf("avx order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+				if (i >= 3)
+					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+				else
+					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
 			}
+#endif
 			{
 				auto t0 = std::chrono::high_resolution_clock::now();
 				double sum = 0;
 				double theta = 0;
-				for (int j = 0; j < Nj; ++j) {
+				for (int j = 0; j < Njj; ++j) {
 					f.costheta.SetV(theta);
 					sum += f.X_Ws.at(i).V();
 					theta += delta;
 				}
 				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
-				printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+				if(i >= 3)
+					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+				else
+					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+
+			}
+			{
+				auto t0 = std::chrono::high_resolution_clock::now();
+				double sum = 0;
+				double theta = 0;
+				
+				for (int j = 0; j < Njj; ++j) {
+					f.costheta.SetV(theta);
+					sum += f.X_Ws.at(i).VE().V();
+					theta += delta;
+				}
+				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				if (i >= 3)
+					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+				else
+					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
 			}
 		}
-#endif
 	}
 
 }
@@ -809,6 +861,8 @@ int main() {
 #else
 	system("dir\n");
 #endif // 0
+	TEST_TRUE(DCount.size() == 0);
+	test_V();
 	test_num();
 	test_Diff();
 	fix_var();

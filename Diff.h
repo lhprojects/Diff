@@ -5,10 +5,12 @@
 #include <vector>
 #include <map>
 #include <stdint.h>
+#include "Num.h"
 
 namespace Diff {
 
 
+	struct Num;
 	struct DExprImpl;
 	struct DConstant;
 	struct DVariableImpl;
@@ -35,6 +37,7 @@ namespace Diff {
 		bool Empty() const { return fImpl == nullptr; }
 		// evaluate the value
 		double V() const;
+		Num VE() const;
 		// make a Expression object reprent the differential respect` s`
 		// `s` must be handler of Variable object
 		Expr D(Expr const &s) const;
@@ -51,7 +54,8 @@ namespace Diff {
 		// only use it for debug
 		std::vector<Var> GetVariablesList() const;
 
-		// make a variable to constant
+		// make a variable to be constant
+		// new expresion returned
 		Expr FixVariable(Var const &s) const;
 
 		// return string for debug
@@ -64,9 +68,7 @@ namespace Diff {
 
 		uint64_t Uid() const;
 		//private:
-		// return the value of last call of V()
-		// please call V() at once
-		double W() const;
+
 		// replace a variable with a expresion
 		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		Expr(DExprImpl const &impl);
