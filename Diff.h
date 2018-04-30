@@ -3,6 +3,7 @@
 #include <string>
 #include <set>
 #include <vector>
+#include <map>
 
 namespace Diff {
 
@@ -10,6 +11,7 @@ namespace Diff {
 	struct DConstant;
 	struct DVariableImpl;
 	struct Var;
+	struct CCode;
 
 	// reference count information
 	// key: the pointer to Expression object
@@ -54,14 +56,28 @@ namespace Diff {
 		// maybe it cause out of memory
 		std::string ToString() const;
 
+		CCode ToCCode() const;
+		CCode ToAVXCode() const;
+
 		//private:
 		// return the value of last call of V()
 		// please call V() at once
 		double W() const;
-		// make a variable to constant
+		// replace a variable with a expresion
 		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		Expr(DExprImpl const &impl);
 		DExprImpl const *fImpl;
+	};
+
+	struct CCode
+	{
+		std::string Body;
+		struct ExprLess {
+			bool operator()(Expr const &l, Expr const &r) const {
+				return l.fImpl < r.fImpl;
+			}
+		};
+		std::map<Expr, std::string, ExprLess> Names;
 	};
 
 	struct RebindableExpr : Expr {

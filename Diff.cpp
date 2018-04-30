@@ -2,6 +2,7 @@
 #include <map>
 #include <typeinfo>
 #include <cmath>
+#include <mmintrin.h>
 
 namespace Diff {
 
@@ -11,9 +12,12 @@ namespace Diff {
 	Const const &Two();
 
 	struct DVariableImpl;
+
 	typedef std::set<DVariableImpl const*> DVariabaleSet;
 
-
+	struct CCodeState {
+		std::string fVarName;
+	};
 
 	char const *ToStr(double g) {
 		static char b[1000];
@@ -36,6 +40,8 @@ namespace Diff {
 		virtual double DoV() const = 0;
 		virtual Expr DoD(Var const &s) const = 0;
 		virtual void ToString(std::string &s) const = 0;
+		virtual void DoToCCode(std::string &sb) const = 0;
+		virtual void DoToAVXCode(std::string &sb) const = 0;
 		// expr can't have a reference to any parent of s
 		virtual Expr DoReplaceVariable(Var const &s, Expr const &expr) const = 0;
 		virtual ~DExprImpl();
@@ -53,7 +59,26 @@ namespace Diff {
 			if (fRef == 0) delete this;
 		}
 
+		mutable std::string fCCodeName;
+		mutable int fCCodeID;
+		mutable bool fCCodeValid;
+		void ToCCode(std::string &sb) const
+		{
+			if (!fCCodeValid) {
+				DoToCCode(sb);
+				fCCodeValid = true;
+			}
+		}
+		void ToAVXCode(std::string &sb) const
+		{
+			if (!fCCodeValid) {
+				DoToAVXCode(sb);
+				fCCodeValid = true;
+			}
+		}
+
 		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
+
 		mutable double fVMem;
 		mutable bool fVMemValid;
 		mutable std::vector<DExprImpl const*> fNodesMem;
@@ -221,6 +246,46 @@ namespace Diff {
 		return sb;
 	}
 
+	CCode Expr::ToCCode() const
+	{
+		auto &nodes = fImpl->GetNodesMem();
+		int id = 0;
+		for (auto & node : nodes) {
+			node->fCCodeID = id;
+			node->fCCodeValid = false;
+			++id;
+		}
+		std::string sb;
+		fImpl->ToCCode(sb);
+
+		CCode ccode;
+		ccode.Body = std::move(sb);
+		for (auto &node : nodes) {
+			ccode.Names[*node] = std::move(node->fCCodeName);
+		}
+		return std::move(ccode);
+	}
+
+	CCode Expr::ToAVXCode() const
+	{
+		auto &nodes = fImpl->GetNodesMem();
+		int id = 0;
+		for (auto & node : nodes) {
+			node->fCCodeID = id;
+			node->fCCodeValid = false;
+			++id;
+		}
+		std::string sb;
+		fImpl->ToAVXCode(sb);
+
+		CCode ccode;
+		ccode.Body = std::move(sb);
+		for (auto &node : nodes) {
+			ccode.Names[*node] = std::move(node->fCCodeName);
+		}
+		return std::move(ccode);
+	}
+
 	/****************************	DExpr	end *********************************************/
 
 	/****************************	RebindableExpr	begin  *********************************************/
@@ -266,6 +331,28 @@ namespace Diff {
 
 		Expr DoReplaceVariable(Var const &, Expr const &) const override {
 			return *this;
+		}
+
+		void DoToAVXCode(std::string &sb) const override {
+			char n[1024];
+			sprintf(n, "C_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_set1_pd(%.20E);\n",
+				fCCodeName.c_str(), fV);
+			sb.append(b);
+		}
+
+		void DoToCCode(std::string &sb) const override {
+			char n[1024];
+			sprintf(n, "C_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = %.20E;\n",
+				fCCodeName.c_str(), fV);
+			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -332,6 +419,26 @@ namespace Diff {
 
 		void AddNode(std::set<DExprImpl const*> &nodes) const override {
 			nodes.insert(this);
+		}
+
+		void DoToCCode(std::string &sb) const override {
+			if (fName.empty()) {
+				char b[1024];
+				sprintf(b, "v_%d", fCCodeID);
+				fCCodeName = b;
+			} else {
+				fCCodeName = fName;
+			}
+		}
+
+		void DoToAVXCode(std::string &sb) const override {
+			if (fName.empty()) {
+				char b[1024];
+				sprintf(b, "v_%d", fCCodeID);
+				fCCodeName = b;
+			} else {
+				fCCodeName = fName;
+			}
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -439,6 +546,7 @@ namespace Diff {
 			}
 		}
 
+
 	};
 	/****************************	Unitary	Function *********************************************/
 
@@ -461,6 +569,35 @@ namespace Diff {
 		Expr DoD(Var const &s) const override {
 			// don't ref this self
 			return Const(0.5)*f1.D(s) / sqrt(f1);
+		}
+		
+		void DoToCCode(std::string &sb) const
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "sqrt_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = sqrt(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "sqrt_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_sqrt_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
+			
 		}
 
 		void ToString(std::string & sb) const override
@@ -488,6 +625,35 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override {
 			return f1.D(s) / f1;
+		}
+
+		void DoToCCode(std::string &sb) const override
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "log_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = log(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "log_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_log_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			
+			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -532,6 +698,171 @@ namespace Diff {
 			return Const(fN)*pow(f1, fN - 1)*f1.D(s);
 		}
 
+		void DoToCCode(std::string &sb) const override
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "pow_%d", fCCodeID);
+			fCCodeName = n;
+
+
+			char b[1024];
+			if (fN == 0) {
+				sprintf(b, "double const %s = 1;\n",
+					fCCodeName.c_str());
+			} else if (fN == 1) {
+				sprintf(b, "double const %s = %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 2) {
+				sprintf(b, "double const %s = %s * %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 3) {
+				sprintf(b, "double const %s = %s * %s * %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 4) {
+				sprintf(b, "double const %s = %s * %s * %s * %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 5) {
+				sprintf(b, "double const %s = %s * %s * %s * %s * %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 0.5) {
+				sprintf(b, "double const %s = sqrt(%s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 1.5) {
+				sprintf(b, "double const %s = sqrt(%s) * %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 2.5) {
+				sprintf(b, "double const %s = sqrt(%s) * %s * %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -0.5) {
+				sprintf(b, "double const %s = 1 / sqrt(%s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -1.5) {
+				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -2) {
+				sprintf(b, "double const %s = 1 / (%s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -2.5) {
+				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -3) {
+				sprintf(b, "double const %s = 1 / (%s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -3.5) {
+				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -4) {
+				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -4.5) {
+				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s * %s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -5) {
+				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -6) {
+				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(),
+					f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -7) {
+				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s * %s * %s * %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(),
+					f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else {
+				sprintf(b, "double const %s = pow(%s, %.20E);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), fN);
+			}
+
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "pow_%d", fCCodeID);
+			fCCodeName = n;
+
+
+			char b[1024];
+			if (fN == 0) {
+				sprintf(b, "__m256d const %s = _mm256_set1_pd(1.);\n",
+					fCCodeName.c_str());
+			} else if (fN == 1) {
+				sprintf(b, "__m256d const %s = %s;\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 2) {
+				sprintf(b, "__m256d const %s = _mm256_mul_pd(%s, %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 3) {
+				sprintf(b, "__m256d const %s = _mm256_mul_pd(_mm256_mul_pd(%s, %s), %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 4) {
+				sprintf(b, "__m256d const %s = _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 5) {
+				sprintf(b, "__m256d const %s = _mm256_mul_pd(%s, _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s)));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 0.5) {
+				sprintf(b, "__m256d const %s = _mm256_sqrt_pd(%s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 1.5) {
+				sprintf(b, "__m256d const %s = _mm256_mul_pd(_mm256_sqrt_pd(%s), %s);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == 2.5) {
+				sprintf(b, "__m256d const %s = _mm256_mul_pd(_mm256_sqrt_pd(%s), _mm256_mul_pd(%s, %s));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -0.5) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_sqrt_pd(%s));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -1.5) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(_mm256_sqrt_pd(%s), %s));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -2) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(%s, %s));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -2.5) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_sqrt_pd(%s)));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -3) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(_mm256_mul_pd(%s, %s), %s));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -3.5) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, _mm256_sqrt_pd(%s))));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -4) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s)));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -4.5) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(_mm256_sqrt_pd(%s), _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s))));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -5) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), _mm256_mul_pd(%s, _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s))));\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -6) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), "
+					"_mm256_mul_pd(       _mm256_mul_pd(%s, %s),        _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s))        )"
+						");\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(),
+					f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else if (fN == -7) {
+				sprintf(b, "__m256d const %s = _mm256_div_pd(_mm256_set1_pd(1.), "
+					"_mm256_mul_pd(            _mm256_mul_pd(_mm256_mul_pd(%s, %s), %s),                  _mm256_mul_pd(_mm256_mul_pd(%s, %s), _mm256_mul_pd(%s, %s))      )"
+					");\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(),
+					f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			} else {
+				sprintf(b, "__m256d const %s = _mm256_pow_pd(%s, %.20E);\n",
+					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), fN);
+			}
+
+			sb.append(b);
+		}
+
+
 		void ToString(std::string & sb) const override
 		{
 			if (fabs(fN - 1) <= 0.000001) {
@@ -567,6 +898,35 @@ namespace Diff {
 			return f1.D(s)*exp(f1);
 		}
 
+		void DoToCCode(std::string &sb) const override
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "exp_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = exp(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "exp_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_exp_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+
+			sb.append(b);
+		}
+
 		void ToString(std::string & sb) const override
 		{
 			sb.append("exp(");
@@ -596,6 +956,35 @@ namespace Diff {
 		Expr DoD(Var const &s) const override
 		{
 			return f1.D(s)*cos(f1);
+		}
+
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "sin_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_sin_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+
+			sb.append(b);
+		}
+
+		void DoToCCode(std::string &sb) const override
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "sin_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = sin(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -629,6 +1018,36 @@ namespace Diff {
 			return -f1.D(s)*sin(f1);
 		}
 
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "cos_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_cos_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+
+			sb.append(b);
+		}
+
+
+		void DoToCCode(std::string &sb) const 
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "cos_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = cos(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
+		}
+
 		void ToString(std::string & sb) const override
 		{
 			sb.append("cos(");
@@ -659,6 +1078,35 @@ namespace Diff {
 			return f1.D(s)*cosh(f1);
 		}
 
+		void DoToCCode(std::string &sb) const override
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "sinh_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = sinh(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "sinh_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_sinh_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+
+			sb.append(b);
+		}
+
 		void ToString(std::string & sb) const override
 		{
 			sb.append("sinh(");
@@ -687,6 +1135,35 @@ namespace Diff {
 		Expr DoD(Var const &s) const override
 		{
 			return f1.D(s)*sinh(f1);
+		}
+
+		void DoToAVXCode(std::string &sb) const
+		{
+			f1.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "cosh_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_cosh_pd(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+
+			sb.append(b);
+		}
+
+		void DoToCCode(std::string &sb) const
+		{
+			f1.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "cosh_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = cosh(%s);\n",
+				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
+			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -743,6 +1220,42 @@ namespace Diff {
 			return f1.D(s) + f2.D(s);
 		}
 
+		void DoToCCode(std::string &sb) const
+		{
+			f1.fImpl->ToCCode(sb);
+			f2.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "add_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = %s + %s;\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const
+		{
+			f1.fImpl->ToAVXCode(sb);
+			f2.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "add_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_add_pd(%s, %s);\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
+		}
+
 		void ToString(std::string & sb) const override
 		{
 			f1.fImpl->ToString(sb);
@@ -772,6 +1285,42 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override {
 			return f1.D(s) - f2.D(s);
+		}
+
+		void DoToCCode(std::string &sb) const
+		{
+			f1.fImpl->ToCCode(sb);
+			f2.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "sub_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = %s - %s;\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const  override
+		{
+			f1.fImpl->ToAVXCode(sb);
+			f2.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "sub_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_sub_pd(%s, %s);\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -814,6 +1363,43 @@ namespace Diff {
 			return f1_ * f2_;
 		}
 
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+			f2.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "mul_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_mul_pd(%s, %s);\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
+		}
+
+
+		void DoToCCode(std::string &sb) const
+		{
+			f1.fImpl->ToCCode(sb);
+			f2.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "mul_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = %s * %s;\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
+		}
+
 
 		void ToString(std::string & sb) const override
 		{
@@ -851,6 +1437,42 @@ namespace Diff {
 				return *this;
 			}
 			return f1_ / f2_;
+		}
+
+		void DoToCCode(std::string &sb) const override
+		{
+			f1.fImpl->ToCCode(sb);
+			f2.fImpl->ToCCode(sb);
+
+			char n[1024];
+			sprintf(n, "div_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "double const %s = %s / %s;\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
+		}
+
+		void DoToAVXCode(std::string &sb) const override
+		{
+			f1.fImpl->ToAVXCode(sb);
+			f2.fImpl->ToAVXCode(sb);
+
+			char n[1024];
+			sprintf(n, "div_%d", fCCodeID);
+			fCCodeName = n;
+
+			char b[1024];
+			sprintf(b, "__m256d const %s = _mm256_div_pd(%s, %s);\n",
+				fCCodeName.c_str(),
+				f1.fImpl->fCCodeName.c_str(),
+				f2.fImpl->fCCodeName.c_str()
+				);
+			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -1078,6 +1700,15 @@ namespace Diff {
 			Expr d2 = Integrate(fX, fX0, fX1, fY.D(s));
 
 			return d0 + d1 + d2;
+		}
+
+		void DoToCCode(std::string &sb) const
+		{
+			throw std::logic_error("not implemented");
+		}
+		void DoToAVXCode(std::string &sb) const
+		{
+			throw std::logic_error("not implemented");
 		}
 
 		void ToString(std::string &sb) const override {

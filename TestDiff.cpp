@@ -1,8 +1,11 @@
 #include "Diff.h"
 #include "Func.h"
-using namespace Diff;
-
+#include <chrono>
 #include <math.h>
+using namespace Diff;
+//#define TEST_CCODE
+
+
 #define TPrintf printf
 const double PI = 3.1415926535897932384626433;
 
@@ -307,7 +310,7 @@ struct Formula {
 		}
 	}
 
-	Formula(Constants C, double XsectionGlobalFactor) : costheta("costheta", 0), eH("e", 140)
+	Formula(Constants C, double XsectionGlobalFactor) : costheta("costheta", 0), eH("eH", 140)
 	{
 		Const const m_Z = C.m_Z;
 		Const const w_Z = C.w_Z;
@@ -331,15 +334,6 @@ struct Formula {
 		Expr const t1 = h1 + c_x*h2;
 		Expr const t2 = h2 + c_x*h1;
 		Expr const L = log((h1h2 + c_x + sqrt(r)) / (h1h2 + c_x - sqrt(r)));
-
-		if (0) {
-			printf("L %f\n", L.V());
-			printf("r %f\n", r.V());
-			printf("s1 %f\n", s1.V());
-			printf("p %f\n", p.V());
-			printf("mH %f\n", mH.V());
-			printf("eH %f\n", eH.V());
-		}
 
 		{
 			Const const cosThetaW2 = 1 - C.sinThetaW2;
@@ -426,7 +420,6 @@ void test_for() {
 		printf("nodes %d\n", (int)f.X_Ss.at(0).FixVariable(f.eH).Nodes());
 		printf("nodes %d\n", (int)f.X_Is.at(0).FixVariable(f.eH).Nodes());
 
-
 	}
 
 	for (auto p : DCount) {
@@ -472,12 +465,167 @@ void test_int() {
 	printf("%s\n", y.D(t).ToString().c_str());
 }
 
+__m256d _mm256_log_pd(__m256d x) {
+	__m256d r;
+	r.m256d_f64[0] = log(x.m256d_f64[0]);
+	r.m256d_f64[1] = log(x.m256d_f64[1]);
+	r.m256d_f64[2] = log(x.m256d_f64[2]);
+	r.m256d_f64[3] = log(x.m256d_f64[3]);
+	return r;
+}
+
+__m256d _mm256_pow_pd(__m256d x, double n) {
+	__m256d r;
+	r.m256d_f64[0] = pow(x.m256d_f64[0], n);
+	r.m256d_f64[1] = pow(x.m256d_f64[1], n);
+	r.m256d_f64[2] = pow(x.m256d_f64[2], n);
+	r.m256d_f64[3] = pow(x.m256d_f64[3], n);
+	return r;
+}
+
+#ifdef TEST_CCODE
+#include "X_Ws_D0.h"
+#include "X_Ws_D1.h"
+#include "X_Ws_D2.h"
+#include "X_Ws_D3.h"
+#include "X_Ws_D4.h"
+#include "X_Ws_D5.h"
+#include "X_Ws_D6.h"
+#include "X_Ws_D0_avx.h"
+#include "X_Ws_D1_avx.h"
+#include "X_Ws_D2_avx.h"
+#include "X_Ws_D3_avx.h"
+#include "X_Ws_D4_avx.h"
+#include "X_Ws_D5_avx.h"
+#include "X_Ws_D6_avx.h"
+#endif
+
+
+void test_code()
+{
+	{
+		Const mass = 1;
+		Var p("p", 1);
+		Expr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
+		printf("%s\n", energy.ToCCode().Body.c_str());
+	}
+
+	{
+		int NMax = 6;
+		ConstantsFactory cf(250);
+		Constants c = cf.Get();
+		Formula f(c, 1);
+		f.costheta.SetV(0);
+		f.costheta.SetV(140);
+		f.Init(NMax);
+
+		for (int i = 0; i <= NMax; ++i)
+		{
+			{
+				char b[1024];
+				sprintf(b, "../Diff/X_Ws_D%d.h", i);
+				FILE *file = fopen(b, "w");
+
+				CCode ccode = f.X_Ws.at(i).ToCCode();
+				fprintf(file, "double X_Ws_D%d(double %s, double %s) {\n",
+					i,
+					ccode.Names[f.eH].c_str(),
+					ccode.Names[f.costheta].c_str());
+				fprintf(file, "%s", ccode.Body.c_str());
+				fprintf(file, "return %s; }", ccode.Names[f.X_Ws.at(i)].c_str());
+
+				fclose(file);
+			}
+			{
+				char b[1024];
+				sprintf(b, "../Diff/X_Ws_D%d_avx.h", i);
+				FILE *file = fopen(b, "w");
+
+				CCode ccode = f.X_Ws.at(i).ToAVXCode();
+				fprintf(file, "__m256d X_Ws_D%d_avx(__m256d %s, __m256d %s) {\n",
+					i,
+					ccode.Names[f.eH].c_str(),
+					ccode.Names[f.costheta].c_str());
+				fprintf(file, "%s", ccode.Body.c_str());
+				fprintf(file, "return %s; }", ccode.Names[f.X_Ws.at(i)].c_str());
+
+				fclose(file);
+			}
+		}
+
+#ifdef TEST_CCODE
+
+		TEST_SAME(X_Ws_D0(140, 0), f.X_Ws.at(0).V());
+		TEST_SAME(X_Ws_D1(140, 0), f.X_Ws.at(1).V());
+		TEST_SAME(X_Ws_D2(140, 0), f.X_Ws.at(2).V());
+		TEST_SAME(X_Ws_D3(140, 0), f.X_Ws.at(3).V());
+		TEST_SAME(X_Ws_D4(140, 0), f.X_Ws.at(4).V());
+		TEST_SAME(X_Ws_D5(140, 0), f.X_Ws.at(5).V());
+		TEST_SAME(X_Ws_D6(140, 0), f.X_Ws.at(6).V());
+
+		double (*ptr[])(double, double) = { X_Ws_D0, X_Ws_D1, X_Ws_D2,
+			X_Ws_D3, X_Ws_D4, X_Ws_D5, X_Ws_D6 };
+		__m256d(*ptr_avx[])(__m256d, __m256d) = { X_Ws_D0_avx, X_Ws_D1_avx, X_Ws_D2_avx,
+			X_Ws_D3_avx, X_Ws_D4_avx, X_Ws_D5_avx, X_Ws_D6_avx };
+
+		double delta = 0.00001;
+		int Nj = (int)(1 / delta) - 10;
+		for (int i = 0; i <= NMax; ++i) {
+			{
+				auto t0 = std::chrono::high_resolution_clock::now();
+				double sum = 0;
+				double theta = 0;
+				for (int j = 0; j < Nj; ++j) {
+					sum += ptr[i](140, theta);
+					theta += delta;
+				}
+				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				printf("cpp order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+			}
+			{
+				auto t0 = std::chrono::high_resolution_clock::now();
+				double sum = 0;
+				double theta = 0;
+				for (int j = 0; j < Nj; j += 4) {
+					__m256d ev = _mm256_set1_pd(140);
+					__m256d tv = _mm256_set_pd(theta, theta + delta, theta + 2* delta, theta + 3* delta);
+					__m256d sumv = ptr_avx[i](ev, tv);
+					sum += sumv.m256d_f64[0];
+					sum += sumv.m256d_f64[1];
+					sum += sumv.m256d_f64[2];
+					sum += sumv.m256d_f64[3];
+					theta += delta;
+					theta += delta;
+					theta += delta;
+					theta += delta;
+				}
+				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				printf("avx order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+			}
+			{
+				auto t0 = std::chrono::high_resolution_clock::now();
+				double sum = 0;
+				double theta = 0;
+				for (int j = 0; j < Nj; ++j) {
+					f.costheta.SetV(theta);
+					sum += f.X_Ws.at(i).V();
+					theta += delta;
+				}
+				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+			}
+		}
+#endif
+	}
+
+}
 
 int main() {
 
 	test_Diff();
 	fix_var();
 	testfunc();
+	test_code();
 	test_int();
 	test_for();
 
