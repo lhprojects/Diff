@@ -4,6 +4,7 @@
 #include <set>
 #include <vector>
 #include <map>
+#include <stdint.h>
 
 namespace Diff {
 
@@ -59,6 +60,7 @@ namespace Diff {
 		CCode ToCCode() const;
 		CCode ToAVXCode() const;
 
+		uint64_t Uid() const;
 		//private:
 		// return the value of last call of V()
 		// please call V() at once
@@ -83,8 +85,8 @@ namespace Diff {
 	struct RebindableExpr : Expr {
 		// bind nothing
 		RebindableExpr()  { }
-		RebindableExpr(RebindableExpr const &s) : Expr(s) { }
-		RebindableExpr(RebindableExpr &&s) : Expr(std::move(s)) { }
+		RebindableExpr(Expr const &s) : Expr(s) { }
+		RebindableExpr(Expr &&s) : Expr(std::move(s)) { }
 		// rebind is not allowed
 		RebindableExpr &operator=(Expr const &s);
 		RebindableExpr &operator=(Expr &&);
@@ -175,6 +177,11 @@ namespace Diff {
 	inline Expr Integrate(Expr const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
 	inline Expr Integrate(Expr const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
 	inline Expr Integrate(Expr const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
+
+	Expr IntegrateOpen(Var const &x, Expr const &from, Expr const &to, Expr const &y);
+	inline Expr IntegrateOpen(Expr const &x, Expr const &from, Expr const &to, Expr const &y) {
+		IntegrateOpen(CastToVar(x), from, to, y);
+	}
 
 	inline Expr operator+(Expr const &s1, double s2) {
 		return s1 + Const(s2);

@@ -5,6 +5,7 @@
 
 namespace Diff {
 
+	uint64_t guid = 0;
 	std::set<DExprImpl*> DCount;
 	Const const &Zero();
 	Const const &One();
@@ -51,6 +52,7 @@ namespace Diff {
 		bool IsConst() const { return fType == ExprType::Const; }
 		bool IsVariable() const { return fType == ExprType::Variable; }
 
+		uint64_t const fUid;
 		mutable int fRef;
 		void IncRef() const { ++fRef; }
 		void DecRef() const {
@@ -82,7 +84,7 @@ namespace Diff {
 		mutable bool fVMemValid;
 		mutable std::vector<DExprImpl const*> fNodesMem;
 		mutable std::map<DExprImpl const *, Expr*> fDoDMem;
-		mutable std::map<std::pair<DVariableImpl const *, DExprImpl const *>, std::pair<int, RebindableExpr> > fReplaceMem;
+		mutable std::map<std::pair<uint64_t, uint64_t>, std::pair<int, RebindableExpr> > fReplaceMem;
 		Expr DoDMem(Var const &s) const;
 		double VMem() const;
 
@@ -101,7 +103,7 @@ namespace Diff {
 
 	};
 
-	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false)
+	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false), fUid(guid++)
 	{
 		fRef = 0;
 		DCount.insert(this);
@@ -138,11 +140,11 @@ namespace Diff {
 		if (IsConst() || IsVariable()) {
 			return DoReplaceVariable(s, expr_);
 		}
-		auto &p = fReplaceMem[std::make_pair((DVariableImpl*)s.fImpl, expr_.fImpl)];
+		auto &p = fReplaceMem[std::make_pair(s.Uid(), expr_.Uid())];
 		if (p.first == 0) { // ok first time to call this
 			Expr expr = DoReplaceVariable(s, expr_);
 			if (expr.fImpl == this) {
-				// just know the result is myself, but don't have a smart pointer
+				// just know the result is myself, but don't save a smart pointer
 				p.first = 2;
 			} else {
 				p.first = 1;
@@ -237,6 +239,10 @@ namespace Diff {
 	Expr Expr::FixVariable(Var const & s) const
 	{
 		return fImpl->ReplaceVariable(s, Const(s.V()));
+	}
+
+	uint64_t Expr::Uid() const {
+		return fImpl->fUid;
 	}
 
 	std::string Expr::ToString() const {
@@ -1599,43 +1605,23 @@ namespace Diff {
 		0.0017832807216964329472961,
 	};
 
-	template<int b, int n, class Functor>
-	struct GaussianLegendreSum {
-
-		static double Sum(double delta, double median, Functor const &f) {
-			return GaussianLegendreSum<b, n / 2, Functor>::Sum(delta, median, f) + GaussianLegendreSum<b + n / 2, n / 2, Functor>::Sum(delta, median, f);
-		}
-
-	};
-	template<int b, class Functor>
-	struct GaussianLegendreSum<b, 1, Functor> {
-
-		static double Sum(double delta, double median, Functor const &f) {
-			double x = (b < 32 ? -gl_x_64points[31 - b] : gl_x_64points[b - 32])*delta + median;
-			double w = (b < 32 ? gl_w_64points[31 - b] : gl_w_64points[b - 32]);
-			return f(x)*w;
-		}
-
-	};
-
 	template<class Functor>
-	double GaussianLegendre64Points(double x0, double x1, Functor const &f)
+	double GaussianLegendre64Points(double x0, double x1, Functor const &f, bool dt = true)
 	{
 		double delta = (x1 - x0) / 2;
 		double median = (x1 + x0) / 2;
 		double h = 0;
-#if 0
+
 		for (int i = 0; i < 32; ++i) {
-			double x = gl_x_64points[i] * delta + median;
+			double x = -gl_x_64points[i] * delta + median;
+			//printf("%d %f %f %f %f\n", i, x, gl_w_64points[i], f(x), h);
 			h += f(x)*gl_w_64points[i];
-			x = -gl_x_64points[i] * delta + median;
+			x = gl_x_64points[i] * delta + median;
+			//printf("%d %f %f %f %f\n", i, x, gl_w_64points[i], f(x), h);
 			h += f(x)*gl_w_64points[i];
 		}
-#else
-		// no more precision from numerical experiments
-		h += GaussianLegendreSum<0, 64, Functor>::Sum(delta, median, f);
-#endif
-		h *= delta;
+
+		if(dt) h *= delta;
 		return h;
 	}
 
@@ -1838,6 +1824,28 @@ namespace Diff {
 	Expr Integrate(Var const &x, Expr const &from, Expr const &to, Expr const &y)
 	{
 		return *new IntegralImpl(x, from, to, y);
+	}
+
+	Expr IntegrateOpen(Var const &x, Expr const &from, Expr const &to, Expr const &y)
+	{
+		RebindableExpr h = Const(0);
+		for (int i = 0; i < 32; ++i) {
+			{
+				Expr xi = 0.5*(1 + gl_x_64points[i])*from + 0.5*(1 - gl_x_64points[i])*to;
+				h = h + y.fImpl->ReplaceVariable(x, xi) * gl_w_64points[i];
+				//printf("%d %f %f %f %f %f\n", i, xi.V(), gl_w_64points[i], xi.V()*xi.V(), y.fImpl->ReplaceVariable(x, xi).V(), h.V());
+			}
+			{
+				Expr xi = 0.5*(1 - gl_x_64points[i])*from + 0.5*(1 + gl_x_64points[i])*to;
+				h = h + y.fImpl->ReplaceVariable(x, xi) * gl_w_64points[i];
+				//printf("%d %f %f %f %f %f\n", i, xi.V(), gl_w_64points[i], xi.V()*xi.V(), y.fImpl->ReplaceVariable(x, xi).V(), h.V());
+			}
+		}
+		h = h * (to - from) / 2;
+
+		return h;
+
+
 	}
 
 	Expr pow(Expr const &s, double n)
