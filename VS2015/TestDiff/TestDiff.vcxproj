@@ -157,6 +157,9 @@
     <ClCompile Include="..\..\Diff.cpp" />
     <ClCompile Include="..\..\TestDiff.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Num.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

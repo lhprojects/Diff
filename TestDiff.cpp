@@ -1,8 +1,11 @@
 #include "Diff.h"
 #include "Func.h"
+#include "Num.h"
 #include <chrono>
 #include <math.h>
 #include <cmath>
+#include <random>
+#include <algorithm>
 using namespace Diff;
 //#define TEST_CCODE
 
@@ -671,6 +674,134 @@ void test_code()
 
 }
 
+void test_num() {
+
+	{
+		Num x1(1, 0.001, 1E-4);
+		Num x2(1, 0.001, 1E-4);
+		Num x = x1 + x2;
+		TEST_SAME(x.V(), 2);
+		TEST_SAME(x.E1(), 0.002);
+		TEST_SAME(x.E2(), 2E-4);
+	}
+
+	{
+		Num x1(1, 0.001, 1E-4);
+		Num x2(1, 0.001, 1E-4);
+		Num x = x1 - x2;
+		TEST_SAME(x.V(), 0);
+		TEST_SAME(x.E1(), 0.002);
+		TEST_SAME(x.E2(), 2E-4);
+	}
+
+	{
+		Num x1(2, 0.001, 1E-4);
+		Num x2(2, 0.001, 1E-4);
+		Num x = x1 * x2;
+		TEST_SAME(x.V(), 4);
+		TEST_SAME(x.E1(), 0.004);
+		TEST_SAME(x.E2(), 8 * 1E-4);
+	}
+
+	{
+		Num x1(2, 0.001, 1E-4);
+		Num x2(2, 0.001, 1E-4);
+		Num x = x1 / x2;
+		TEST_SAME(x.V(), 1);
+		TEST_SAME(x.E1(), 0.001/2 + 0.001*2/4);
+		TEST_SAME(x.E2(), 1E-4 / 4 + 1E-4 / 4);
+
+	}
+
+	{
+		std::mt19937 mt;
+		std::uniform_real_distribution<double> u;
+		double sum = 0;
+		double sum1 = 0;
+		double sum2 = 0;
+		int N = 100000;
+		int M = 20;
+		std::vector<int> ds(M);
+		for (int i = 0;i < N; ++i) {
+			Num one(1, 0, 0);
+			Num two(2, 0, 0);
+			Num a(u(mt), 0, 0);
+			Num b(u(mt), 0, 0);
+			Num c(u(mt), 0, 0);
+			Num d(u(mt), 0, 0);
+			Num e(u(mt), 0, 0);
+			Num f(u(mt), 0, 0);
+			Num m =  (a*a + two*a*b + two*a*c + two*a*d + two*a*e + two*a*f + b*b + two*b*c + two*b*d + two*b*e + two*b*f + c*c + two*c*d + two*c*e + two*c*f + d*d + two*d*e + two*d*f + e*e + two*e*f + f*f);
+			Num n = pow(a + b + c + d + e + f, 2);
+			Num r = m / n;
+			double delta = r.V() - 1;
+			sum += delta;
+			sum1 += fabs(delta);
+			sum2 += delta*delta;
+			for (int i = 0; i < M; ++i) {
+				if (delta < (i - M/2 + 0.5)*DBL_EPSILON && delta >= (i  - M/2 - 0.5)*DBL_EPSILON) ds[i]++;
+			}
+
+		}
+		Num one(1, 0, 0);
+		Num x(u(mt), 0, 0);
+		Num y(u(mt), 0, 0);
+		Num z(u(mt), 0, 0);
+
+		Num m = (x*y + y*z + z*x) / (x*y*z) * (x + y + z) / (x*y*z);
+		Num n = (one / x + one / y + one / z)*(one / x / y + one / y / z + one / z / x);
+		Num r = m / n;
+
+		for (int i = 0; i < M; ++i) {
+			printf("[%+e, %+e) %d\n", (i - M / 2 - 0.5) * DBL_EPSILON, (i - M / 2 + 0.5) * DBL_EPSILON, ds[i]);
+		}
+
+		printf("mean %e\n", sum / N);
+		printf("sigma2 %e\n", sum2 / N);
+		printf("num E1 %e\n", r.E1());
+		printf("num E2 %e\n", r.E2());
+
+	}
+	{
+
+		std::mt19937 mt;
+		std::uniform_real_distribution<double> u;
+		double sum = 0;
+		double sum1 = 0;
+		double sum2 = 0;
+		int N = 100000;
+		int M = 20;
+		std::vector<int> ds(M);
+		for (int i = 0; i < N; ++i) {
+
+			Num one(1, 0, 0);
+			Num x(u(mt) * 100, 0, 0);
+			Num r = pow(sin(x), 2) + pow(cos(x), 2);
+
+			double delta = r.V() - 1;
+			sum += delta;
+			sum1 += fabs(delta);
+			sum2 += delta*delta;
+			for (int i = 0; i < M; ++i) {
+				if (delta < (i - M / 2 + 0.5)*DBL_EPSILON && delta >= (i - M / 2 - 0.5)*DBL_EPSILON) ds[i]++;
+			}
+		}
+
+		for (int i = 0; i < M; ++i) {
+			printf("[%+e, %+e) %d\n", (i - M / 2 - 0.5) * DBL_EPSILON, (i - M / 2 + 0.5) * DBL_EPSILON, ds[i]);
+		}
+
+		Num one(1, 0, 0);
+		Num x(u(mt) * 100, 0, 0);
+		Num r = pow(sin(x), 2) + pow(cos(x), 2);
+		printf("mean %e\n", sum / N);
+		printf("sigma2 %e\n", sum2 / N);
+		printf("num E1 %e\n", r.E1());
+		printf("num E2 %e\n", r.E2());
+
+	}
+}
+
 
 int main() {
 #if _MSC_VER
@@ -678,7 +809,7 @@ int main() {
 #else
 	system("dir\n");
 #endif // 0
-
+	test_num();
 	test_Diff();
 	fix_var();
 	testfunc();

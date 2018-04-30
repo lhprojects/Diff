@@ -8,6 +8,7 @@
 
 namespace Diff {
 
+
 	struct DExprImpl;
 	struct DConstant;
 	struct DVariableImpl;

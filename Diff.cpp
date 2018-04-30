@@ -315,11 +315,13 @@ namespace Diff {
 	struct DConstant : DExprImpl
 	{
 		double const fV;
+
 		DConstant(double v) : DExprImpl(ExprType::Const), fV(v) { }
 
 		virtual double DoV() const override {
 			return fV;
 		}
+
 
 		void AddNode(std::set<DExprImpl const*> &nodes) const override {
 			nodes.insert(this);
