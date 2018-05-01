@@ -9,7 +9,7 @@
 
 namespace Diff {
 
-
+	struct Expr;
 	struct Num;
 	struct DExprImpl;
 	struct DConstant;
@@ -17,10 +17,11 @@ namespace Diff {
 	struct Var;
 	struct CCode;
 
-	// reference count information
-	// key: the pointer to Expression object
-	// value: how many references of this object
-	extern std::set<DExprImpl*> DCount;
+	// make a Expression object reprent the differential respect` s`
+	// `var` must be handler of Variable object
+	Expr D(Expr const &expr, Expr const &var);
+	Expr D(Expr const &expr, std::pair<Expr, int> const &pair);
+
 
 	// a handler of Expression object
 	struct Expr
@@ -38,11 +39,8 @@ namespace Diff {
 		// evaluate the value
 		double V() const;
 		Num VE() const;
-		// make a Expression object reprent the differential respect` s`
-		// `s` must be handler of Variable object
-		Expr D(Expr const &s) const;
-		// same as D(Expr const &)
-		Expr D(Var const &s) const;
+
+		Expr D(Expr const &var) const;
 
 		// number of nodes
 		// a hits for compuation time
@@ -215,5 +213,10 @@ namespace Diff {
 	inline Expr operator-(Expr const &s2) {
 		return 0.0 - s2;
 	}
+
+	// reference count information
+	// key: the pointer to Expression object
+	// value: how many references of this object
+	extern std::set<DExprImpl*> DCount;
 
 }

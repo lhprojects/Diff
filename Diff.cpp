@@ -230,9 +230,27 @@ namespace Diff {
 		return fImpl->VEMem();
 	};
 
-	Expr Expr::D(Var const &s) const {
-		return fImpl->DoDMem(s);
+
+	Expr D(Expr const &expr, Expr const &var) {
+		return expr.fImpl->DoDMem(CastToVar(var));
 	}
+
+	inline Expr D(Expr const &expr, Var const &var) {
+		return expr.fImpl->DoDMem(var);
+	}
+
+	Expr D(Expr const &expr, std::pair<Expr, int> const &pair) {
+		RebindableExpr result = expr;
+		for (int i = 0; i < pair.second; ++i) {
+			result = D(result, pair.first);
+		}
+		return result;
+	}
+
+	Expr D(Expr const &expr, std::pair<Expr const &, int> const &pair) {
+
+	}
+
 
 	size_t Expr::Nodes() const
 	{
@@ -258,6 +276,11 @@ namespace Diff {
 		std::string sb;
 		fImpl->ToString(sb);
 		return sb;
+	}
+
+	Expr Expr::D(Expr const & var) const
+	{
+		return fImpl->DoDMem(CastToVar(var));
 	}
 
 	CCode Expr::ToCCode() const
@@ -497,15 +520,6 @@ namespace Diff {
 	}
 	/********************	DVariableImpl	end		*********************************/
 
-	Expr Expr::D(Expr const &s) const {
-		if (!IsVar(s)) {
-			printf("ERROR differential with %s, %s expected, 0 returned\n", Typeid(s).name(), typeid(DVariableImpl).name());
-			return Zero();
-		}
-
-		return fImpl->DoDMem(CastToVar(s));
-	}
-
 	std::vector<Var> Expr::GetVariablesList() const
 	{
 
@@ -598,7 +612,7 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override {
 			// don't ref this self
-			return Const(0.5)*f1.D(s) / sqrt(f1);
+			return Const(0.5)*D(f1, s) / sqrt(f1);
 		}
 		
 		void DoToCCode(std::string &sb) const
@@ -658,7 +672,7 @@ namespace Diff {
 		}
 
 		Expr DoD(Var const &s) const override {
-			return f1.D(s) / f1;
+			return D(f1, s) / f1;
 		}
 
 		void DoToCCode(std::string &sb) const override
@@ -732,9 +746,9 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override {
 			if (fN == 0) return Zero();
-			else if (fN == 1) return f1.D(s);
-			else if (fN == 2) return Two()*f1*f1.D(s);
-			return Const(fN)*pow(f1, fN - 1)*f1.D(s);
+			else if (fN == 1) return D(f1, s);
+			else if (fN == 2) return Two()*f1*D(f1, s);
+			return Const(fN)*pow(f1, fN - 1)*D(f1, s);
 		}
 
 		void DoToCCode(std::string &sb) const override
@@ -938,7 +952,7 @@ namespace Diff {
 		{
 			// make a copy
 			// don't refer this self
-			return f1.D(s)*exp(f1);
+			return D(f1, s)*exp(f1);
 		}
 
 		void DoToCCode(std::string &sb) const override
@@ -1003,7 +1017,7 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override
 		{
-			return f1.D(s)*cos(f1);
+			return D(f1, s)*cos(f1);
 		}
 
 		void DoToAVXCode(std::string &sb) const override
@@ -1068,7 +1082,7 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override
 		{
-			return -f1.D(s)*sin(f1);
+			return -D(f1, s)*sin(f1);
 		}
 
 		void DoToAVXCode(std::string &sb) const override
@@ -1133,7 +1147,7 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override
 		{
-			return f1.D(s)*cosh(f1);
+			return D(f1, s)*cosh(f1);
 		}
 
 		void DoToCCode(std::string &sb) const override
@@ -1196,7 +1210,7 @@ namespace Diff {
 
 		Expr DoD(Var const &s) const override
 		{
-			return f1.D(s)*sinh(f1);
+			return D(f1, s)*sinh(f1);
 		}
 
 		void DoToAVXCode(std::string &sb) const
@@ -1283,7 +1297,7 @@ namespace Diff {
 
 
 		Expr DoD(Var const &s) const override {
-			return f1.D(s) + f2.D(s);
+			return D(f1, s) + D(f2, s);
 		}
 
 		void DoToCCode(std::string &sb) const
@@ -1354,7 +1368,7 @@ namespace Diff {
 
 
 		Expr DoD(Var const &s) const override {
-			return f1.D(s) - f2.D(s);
+			return D(f1, s) - D(f2, s);
 		}
 
 		void DoToCCode(std::string &sb) const
@@ -1424,9 +1438,9 @@ namespace Diff {
 
 
 		Expr DoD(Var const &s) const override {
-			if (f1.fImpl->IsConst()) return f1* f2.D(s);
-			else if (f2.fImpl->IsConst()) return f2*f1.D(s);
-			else return f1.D(s) * f2 + f1 * f2.D(s);
+			if (f1.fImpl->IsConst()) return f1* D(f2, s);
+			else if (f2.fImpl->IsConst()) return f2 * D(f1, s);
+			else return D(f1, s) * f2 + f1 * D(f2, s);
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -1508,7 +1522,7 @@ namespace Diff {
 
 
 		Expr DoD(Var const &s) const override {
-			return f1.D(s) / f2 - f1*f2.D(s) *pow(f2, -2);
+			return D(f1, s) / f2 - f1 * D(f2, s) * pow(f2, -2);
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -1752,7 +1766,7 @@ namespace Diff {
 		Expr DoD(Var const &s) const
 		{
 			RebindableExpr d0;
-			Expr dx0 = fX0.D(s);
+			Expr dx0 = D(fX0, s);
 			if (dx0.fImpl->IsConst() && dx0.fImpl->VMem() == 0) {
 				d0 = Const(0);
 			} else {
@@ -1760,14 +1774,14 @@ namespace Diff {
 			}
 
 			RebindableExpr d1;
-			Expr dx1 = fX1.D(s);
+			Expr dx1 = D(fX1, s);
 			if (dx1.fImpl->IsConst() && dx1.fImpl->VMem() == 0) {
 				d1 = Const(0);
 			} else {
 				d1 = dx1 * fY.ReplaceVariable(fX, fX1);
 			}
 
-			Expr d2 = Integrate(fX, fX0, fX1, fY.D(s));
+			Expr d2 = Integrate(fX, fX0, fX1, D(fY, s));
 
 			return d0 + d1 + d2;
 		}

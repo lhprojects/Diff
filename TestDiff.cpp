@@ -45,52 +45,45 @@ void test_Diff() {
 
 
 
-	{
+	{ // basics test
 		Var x = 4;
 
-		TEST_SAME(x.D(x).V(), 1);
-		TEST_SAME((x * x).D(x).V(), 2 * x.V());
-		TEST_SAME((x + x).D(x).V(), 2);
-		TEST_SAME((x - x).D(x).V(), 0);
-		TEST_SAME((x / x).D(x).V(), 0);
-		TEST_SAME(sqrt(x).D(x).V(), 0.5 / sqrt(x.V()));
-		TEST_SAME(sqrt(x).D(x).D(x).V(), -0.25 / pow(sqrt(x.V()), 3));
-		TEST_SAME(sqrt(x).D(x).D(x).D(x).V(), 3 * 0.125 / pow(sqrt(x.V()), 5));
-		TEST_SAME(log(x).D(x).V(), 1 / x.V());
-		TEST_SAME(POW2(x).D(x).V(), 2 * x.V());
+		TEST_SAME(D(x, x).V(), 1);
+		TEST_SAME(D(x * x, x).V(), 2 * x.V());
+		TEST_SAME(D(x + x, x).V(), 2);
+		TEST_SAME(D(x - x, x).V(), 0);
+		TEST_SAME(D(x / x, x).V(), 0);
+		TEST_SAME(D(sqrt(x), x).V(), 0.5 / sqrt(x.V()));
+		TEST_SAME(D(sqrt(x), {x, 2}).V(), -0.25 / pow(sqrt(x.V()), 3));
+		TEST_SAME(D(sqrt(x), {x, 3}).V(), 3 * 0.125 / pow(sqrt(x.V()), 5));
+		TEST_SAME(D(log(x), x).V(), 1 / x.V());
+		TEST_SAME(D(pow(x, 2), x).V(), 2 * x.V());
 	}
-
-
-	{
+	
+	{ // sqrt
+	
 		Var x = 4;
-		TEST_SAME((x*x*x).D(x).D(x).V(), 3 * 2 * x.V());
-		TEST_SAME((x*x*x*x).D(x).D(x).D(x).V(), 4 * 3 * 2 * x.V());
+		TEST_SAME(D(sqrt(x), { x, 1 }).V(), 0.5 / sqrt(x.V()));
+		TEST_SAME(D(sqrt(x), { x, 2 }).V(), -0.25 / pow(sqrt(x.V()), 3));
+		TEST_SAME(D(sqrt(x), { x, 3 }).V(), 3 * 0.125 / pow(sqrt(x.V()), 5));
 	}
-	{
-		Var x("x", 4);
-		TEST_SAME(POW2(x).V(), (x*x).V());
-		TEST_SAME(POW2(x).D(x).V(), (x*x).D(x).V());
-		TEST_SAME(POW2(x).D(x).D(x).V(), (x*x).D(x).D(x).V());
-		TEST_SAME(POW2(x).D(x).D(x).D(x).V(), (x*x).D(x).D(x).D(x).V());
 
-		TEST_SAME(POW4(x).V(), (x*x*x*x).V());
-		TEST_SAME(POW4(x).D(x).V(), (x*x*x*x).D(x).V());
-
-	}
-	{
+	{ // mul
 		Var x = 4;
-		TEST_SAME(sqrt(x).D(x).V(), 0.5 / sqrt(x.V()));
+		TEST_SAME(D(x*x*x, {x, 2}).V(), 3 * 2 * x.V());
+		TEST_SAME(D(x*x*x*x, { x, 3 }).V(), 4 * 3 * 2 * x.V());
 	}
 
 	{ // exp
 		Var x("x", 4);
 		TEST_SAME(exp(2 * x).V(), exp(2 * x.V()));
-		TEST_SAME(exp(2 * x).D(x).V(), 2 * exp(2 * x.V()));
-		TEST_SAME(exp(2 * x).D(x).D(x).V(), 2 * 2 * exp(2 * x.V()));
+		TEST_SAME(D(exp(2 * x), x).V(), 2 * exp(2 * x.V()));
+		TEST_SAME(D(exp(2 * x), { x, 2 }).V(), 2 * 2 * exp(2 * x.V()));
+		TEST_SAME(D(exp(2 * x), { x, 3 }).V(), 2 * 2 * 2 * exp(2 * x.V()));
 
-		TPrintf("exp(2x)          : %s\n", exp(2 * x).ToString().c_str());
-		TPrintf("exp(2x)'         : %s\n", exp(2 * x).D(x).ToString().c_str());
-		TPrintf("exp(2x)''        : %s\n", exp(2 * x).D(x).D(x).ToString().c_str());
+		TPrintf("exp(2x)          : %s\n", D(exp(2 * x), x).ToString().c_str());
+		TPrintf("exp(2x)'         : %s\n", D(exp(2 * x), x).ToString().c_str());
+		TPrintf("exp(2x)''        : %s\n", D(exp(2 * x), x).ToString().c_str());
 	}
 
 	{ // sin cos
@@ -312,17 +305,17 @@ struct Formula {
 	void Init(int n)
 	{
 		for (; (int)X_Is.size() <= n; ) {
-			X_Is.push_back(X_Is.at(X_Is.size() - 1).D(costheta));
+			X_Is.push_back(D(X_Is.at(X_Is.size() - 1), costheta));
 			costheta.SetV(0);
 			X_Is0.push_back(X_Is.back().FixVariable(costheta));
 		}
 		for (; (int)X_Ws.size() <= n; ) {
-			X_Ws.push_back(X_Ws.at(X_Ws.size() - 1).D(costheta));
+			X_Ws.push_back(D(X_Ws.at(X_Ws.size() - 1), costheta));
 			costheta.SetV(0);
 			X_Ws0.push_back(X_Ws.back().FixVariable(costheta));
 		}
 		for (; (int)X_Ss.size() <= n; ) {
-			X_Ss.push_back(X_Ss.at(X_Ss.size() - 1).D(costheta));
+			X_Ss.push_back(D(X_Ss.at(X_Ss.size() - 1), costheta));
 			costheta.SetV(0);
 			X_Ss0.push_back(X_Ss.back().FixVariable(costheta));
 		}
@@ -504,11 +497,11 @@ void test_int() {
 		Expr y = Integrate(x, Const(0), t, x*x*t);
 		Expr yopen = IntegrateOpen(x, Const(0), t, x*x*t);
 		TEST_SAME(y.V(), 1 / 3.0);
-		TEST_SAME(y.D(t).V(), 1 / 3.0 + 1);
-		TEST_SAME(yopen.D(t).V(), 1 / 3.0 + 1);
-		printf("dy/dt %s\n", y.D(t).ToString().c_str());
-		printf("dy/dt - 4/3 %e\n", y.D(t).V() - 4 / 3.);
-		printf("dy/dt(open) - 4/3 %e\n", yopen.D(t).V() - 4 / 3.);
+		TEST_SAME(D(y, t).V(), 1 / 3.0 + 1);
+		TEST_SAME(D(yopen, t).V(), 1 / 3.0 + 1);
+		printf("dy/dt %s\n",D(y, t).ToString().c_str());
+		printf("dy/dt - 4/3 %e\n", D(y, t).V() - 4 / 3.);
+		printf("dy/dt(open) - 4/3 %e\n", D(yopen, t).V() - 4 / 3.);
 	}
 }
 
