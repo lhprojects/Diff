@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Diff.cpp" />
+    <ClCompile Include="..\..\Quad.cpp" />
     <ClCompile Include="..\..\TestDiff.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

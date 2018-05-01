@@ -155,10 +155,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Diff.cpp" />
+    <ClCompile Include="..\..\Quad.cpp" />
     <ClCompile Include="..\..\TestDiff.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Num.h" />
+    <ClInclude Include="..\..\Quad.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ClassDiagram.cd" />
