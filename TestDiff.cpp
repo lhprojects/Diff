@@ -496,7 +496,9 @@ void test_int() {
 		Var t("t", 1);
 		Var x("x", 0);
 		Expr y = Integrate(x, Const(0), t, x*x*t);
+
 		Expr yopen = GaussLegendre64PointsIntegrate(x, Const(0), t, x*x*t);
+
 		TEST_SAME(y.V(), 1 / 3.0);
 		TEST_SAME(D(y, t).V(), 1 / 3.0 + 1);
 		TEST_SAME(D(yopen, t).V(), 1 / 3.0 + 1);

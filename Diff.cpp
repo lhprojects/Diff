@@ -1818,6 +1818,31 @@ namespace Diff {
 
 	}
 
+	Expr TanhSinh64PointsIntegrate(Expr const &x_, Expr const &from, Expr const &to, Expr const &y)
+	{
+
+		Var x = CastToVar(x_);
+		RebindableExpr h = Const(0);
+		for (int i = 0; i < 32; ++i) {
+			{
+				tanh_sinh_1_minus_x_65points
+				Expr xi = 0.5*(1 + gl_x_64points[i])*from + 0.5*(1 - gl_x_64points[i])*to;
+				h = h + y.fImpl->ReplaceVariable(x, xi) * tanh_sinh_w_65points[i];
+				//printf("%d %f %f %f %f %f\n", i, xi.V(), gl_w_64points[i], xi.V()*xi.V(), y.fImpl->ReplaceVariable(x, xi).V(), h.V());
+			}
+			{
+				Expr xi = 0.5*(1 - gl_x_64points[i])*from + 0.5*(1 + gl_x_64points[i])*to;
+				h = h + y.fImpl->ReplaceVariable(x, xi) * tanh_sinh_w_65points[i];
+				//printf("%d %f %f %f %f %f\n", i, xi.V(), gl_w_64points[i], xi.V()*xi.V(), y.fImpl->ReplaceVariable(x, xi).V(), h.V());
+			}
+		}
+		h = h * (to - from) / 2;
+
+		return h;
+
+	}
+
+
 	Expr pow(Expr const &s, double n)
 	{
 		if (s.fImpl->IsConst()) {

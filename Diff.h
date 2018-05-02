@@ -1,12 +1,15 @@
 #pragma once
 #define _CRT_SECURE_NO_WARNINGS
+#include "Num.h"
+#include "Constants.h"
+
 #include <string>
 #include <set>
 #include <vector>
 #include <map>
 #include <stdint.h>
-#include "Num.h"
-#include "Constants.h"
+#include <tuple>
+#include <utility>
 
 namespace Diff {
 
