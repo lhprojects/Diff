@@ -1,0 +1,59 @@
+tanh_sinh_65points_h 0.100000
+Methods  Range    Integrand    Error
+TanhSinh [ 0, 1 ] x*x         +5.551115e-17
+TanhSinh [ 0, 1 ] sqrt(x)     +5.551115e-16
+TanhSinh [ 0, 1 ] log(x)      +1.110223e-16
+TanhSinh [ 0, 1 ] 1/sqrt(x)   -2.800404e-09
+TanhSinh [ 0, 1 ] pow(x,-2/3) -3.896135e-06
+TanhSinh [ 0, 1 ] 1/(1+20xx)  -4.274359e-15
+TanhSinh [-1, 1 ] 1/(1+20xx)  +2.058457e-04
+TanhSinh [ 0, 1 ] 1/(1+xx)    -1.110223e-16
+TanhSinh [-1, 1 ] 1/(1+xx)    +3.308465e-14
+
+tanh_sinh_65points_h 0.110000
+Methods  Range    Integrand    Error
+TanhSinh [ 0, 1 ] x*x         +0.000000e+00
+TanhSinh [ 0, 1 ] sqrt(x)     -1.110223e-16
+TanhSinh [ 0, 1 ] log(x)      +0.000000e+00
+TanhSinh [ 0, 1 ] 1/sqrt(x)   -9.445777e-13
+TanhSinh [ 0, 1 ] pow(x,-2/3) -1.971340e-08
+TanhSinh [ 0, 1 ] 1/(1+20xx)  +9.536816e-14
+TanhSinh [-1, 1 ] 1/(1+20xx)  +4.593911e-04
+TanhSinh [ 0, 1 ] 1/(1+xx)    +2.220446e-16
+TanhSinh [-1, 1 ] 1/(1+xx)    +6.448175e-13
+
+tanh_sinh_65points_h 0.120000
+Methods  Range    Integrand    Error
+TanhSinh [ 0, 1 ] x*x         -5.551115e-17
+TanhSinh [ 0, 1 ] sqrt(x)     +2.220446e-16
+TanhSinh [ 0, 1 ] log(x)      +1.110223e-16
+TanhSinh [ 0, 1 ] 1/sqrt(x)   -8.881784e-16
+TanhSinh [ 0, 1 ] pow(x,-2/3) -1.218359e-11
+TanhSinh [ 0, 1 ] 1/(1+20xx)  -1.877665e-12
+TanhSinh [-1, 1 ] 1/(1+20xx)  +8.969877e-04
+TanhSinh [ 0, 1 ] 1/(1+xx)    +0.000000e+00
+TanhSinh [-1, 1 ] 1/(1+xx)    +7.793544e-12
+
+tanh_sinh_65points_h 0.130000
+Methods  Range    Integrand    Error
+TanhSinh [ 0, 1 ] x*x         +5.551115e-17
+TanhSinh [ 0, 1 ] sqrt(x)     +0.000000e+00
+TanhSinh [ 0, 1 ] log(x)      -2.220446e-16
+TanhSinh [ 0, 1 ] 1/sqrt(x)   -2.220446e-16
+TanhSinh [ 0, 1 ] pow(x,-2/3) -1.776357e-15
+TanhSinh [ 0, 1 ] 1/(1+20xx)  +1.323602e-11
+TanhSinh [-1, 1 ] 1/(1+20xx)  +1.580443e-03
+TanhSinh [ 0, 1 ] 1/(1+xx)    -3.330669e-16
+TanhSinh [-1, 1 ] 1/(1+xx)    +6.421352e-11
+
+tanh_sinh_65points_h 0.140000
+Methods  Range    Integrand    Error
+TanhSinh [ 0, 1 ] x*x         +0.000000e+00
+TanhSinh [ 0, 1 ] sqrt(x)     +1.110223e-16
+TanhSinh [ 0, 1 ] log(x)      -2.220446e-16
+TanhSinh [ 0, 1 ] 1/sqrt(x)   +4.440892e-16
+TanhSinh [ 0, 1 ] pow(x,-2/3) -1.332268e-15
+TanhSinh [ 0, 1 ] 1/(1+20xx)  +3.488948e-11
+TanhSinh [-1, 1 ] 1/(1+20xx)  +2.568937e-03
+TanhSinh [ 0, 1 ] 1/(1+xx)    +2.220446e-16
+TanhSinh [-1, 1 ] 1/(1+xx)    +3.914431e-10
