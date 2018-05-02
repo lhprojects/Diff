@@ -480,7 +480,7 @@ void test_int() {
 		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(x, 0, 129* PI, sin(x)).V() - 2);
 	}
 
-	{ // the singularity
+	{ // sqrt
 		Var x = 0;
 		TEST_SAME(Integrate(x, 0, 1, sqrt(x)).V(), 2 / 3.0);
 		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.): %.20f\n", Integrate(x, 0, 1, sqrt(x)).V() - (2 / 3.0));
@@ -502,10 +502,21 @@ void test_int() {
 		TEST_SAME(y.V(), 1 / 3.0);
 		TEST_SAME(D(y, t).V(), 1 / 3.0 + 1);
 		TEST_SAME(D(yopen, t).V(), 1 / 3.0 + 1);
-		printf("dy/dt %s\n",D(y, t).ToString().c_str());
-		printf("dy/dt - 4/3 %e\n", D(y, t).V() - 4 / 3.);
-		printf("dy/dt(open) - 4/3 %e\n", D(yopen, t).V() - 4 / 3.);
+		printf("dy/dt       - 4/3 %+e\n", D(y, t).V() - 4 / 3.);
+		printf("dy/dt(open) - 4/3 %+e\n", D(yopen, t).V() - 4 / 3.);
 	}
+
+	{ // sqrt'
+		Var x = 0;
+		Var t = 1;
+		TEST_SAME(Integrate(x, 0, t, sqrt(t - x)).V(), 2 / 3.0);
+		TEST_SAME(GaussLegendre64PointsIntegrate(x, Const(0), t, sqrt(t - x)).V(), 2 / 3.0);
+		TEST_TRUE(fabs(D(Integrate(x, 0, t, sqrt(t - x)), t).V() - 1) < 0.01);
+		TEST_SAME(D(GaussLegendre64PointsIntegrate(x, Const(0), t, sqrt(t - x)), t).V(), 1);
+		printf("Integrate(x, 0, t, sqrt(t - x))'                      - 1: %+.6e\n", D(Integrate(x, 0, t, sqrt(t - x)), t).V() - 1);
+		printf("GaussLegendre64PointsIntegrate(x, 0, t, sqrt(t - x))' - 1: %+.6e\n", D(GaussLegendre64PointsIntegrate(x, Const(0), t, sqrt(t - x)), t).V() - 1);
+	}
+
 }
 
 
@@ -930,9 +941,9 @@ int main() {
 	test_Diff();
 	fix_var();
 	testfunc();
-	test_code();
 	test_int();
 	test_for();
+	test_code();
 
 	printf("%d test(s) failed\n", n_failed);
 	return n_failed;
