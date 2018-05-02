@@ -1606,7 +1606,7 @@ namespace Diff {
 
 		double DoV() const
 		{
-			return GaussianLegendre64Points([&](double x) {
+			return GaussLegendre64Points([&](double x) {
 				fX.SetV(x);
 				return fY.V();
 			}, fX0.fImpl->VMem(), fX1.fImpl->VMem());
@@ -1614,7 +1614,7 @@ namespace Diff {
 
 
 		Num DoVE() const override {
-			double v = GaussianLegendre64Points([&](double x) {
+			double v = GaussLegendre64Points([&](double x) {
 				fX.SetV(x);
 				return fY.V();
 			}, fX0.fImpl->VMem(), fX1.fImpl->VMem());
@@ -1795,8 +1795,9 @@ namespace Diff {
 		return *new IntegralImpl(x, from, to, y);
 	}
 
-	Expr IntegrateOpen(Var const &x, Expr const &from, Expr const &to, Expr const &y)
+	Expr GaussLegendre64PointsIntegrate(Expr const &x_, Expr const &from, Expr const &to, Expr const &y)
 	{
+		Var x = CastToVar(x_);
 		RebindableExpr h = Const(0);
 		for (int i = 0; i < 32; ++i) {
 			{

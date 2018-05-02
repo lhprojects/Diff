@@ -27,7 +27,7 @@ namespace Diff {
 	};
 
 
-	double GaussianLegendre16Points(std::function<double(double x)> const &f, double x0, double x1)
+	double GaussLegendre16Points(std::function<double(double x)> const &f, double x0, double x1)
 	{
 		double delta = (x1 - x0) / 2;
 		double median = (x1 + x0) / 2;
@@ -112,7 +112,7 @@ namespace Diff {
 		0.0017832807216964329472961,
 	};
 
-	double GaussianLegendre64Points(std::function<double(double x)> const &f, double x0, double x1)
+	double GaussLegendre64Points(std::function<double(double x)> const &f, double x0, double x1)
 	{
 		double delta = (x1 - x0) / 2;
 		double median = (x1 + x0) / 2;
@@ -136,7 +136,7 @@ namespace Diff {
 
 #define SQURE(x) (x*x)
 
-	double const ts_w_65points[] = {
+	double const tanh_sinh_w_65points[] = {
 		0.5*Pi*ts_65points_h*std::cosh(0 * ts_65points_h) / SQURE(std::cosh(0.5*Pi*std::sinh(0 * ts_65points_h))),
 		0.5*Pi*ts_65points_h*std::cosh(1 * ts_65points_h) / SQURE(std::cosh(0.5*Pi*std::sinh(1 * ts_65points_h))),
 		0.5*Pi*ts_65points_h*std::cosh(2 * ts_65points_h) / SQURE(std::cosh(0.5*Pi*std::sinh(2 * ts_65points_h))),
@@ -173,7 +173,7 @@ namespace Diff {
 	};
 
 
-	double const ts_1_minus_x_65points[] = {
+	double const tanh_sinh_1_minus_x_65points[] = {
 		1,
 		exp(0.5*Pi*std::sinh(-1 * ts_65points_h)) / std::cosh(0.5*Pi*std::sinh(1 * ts_65points_h)),
 		exp(0.5*Pi*std::sinh(-2 * ts_65points_h)) / std::cosh(0.5*Pi*std::sinh(2 * ts_65points_h)),
@@ -209,7 +209,34 @@ namespace Diff {
 		exp(0.5*Pi*std::sinh(-32 * ts_65points_h)) / std::cosh(0.5*Pi*std::sinh(32 * ts_65points_h)),
 	};
 
+	double TanhSinh65Points(std::function<double(double x_minus_x0, double x1_minus_x)> const &f, double x0, double x1)
+	{
 
+		int n = 32;
+		double I = 0;
+
+		for (int k = -32; k <= 32; ++k) {
+
+			double x_minus_x0;
+			double x1_minus_x;
+			double w;
+			if (k >= 0) {
+				x1_minus_x = 0.5 * tanh_sinh_1_minus_x_65points[k] * (x1 - x0);
+				x_minus_x0 = x1 - x0 - x1_minus_x;
+				w = tanh_sinh_w_65points[k];
+			} else {
+				x_minus_x0 = 0.5 * tanh_sinh_1_minus_x_65points[-k] * (x1 - x0);
+				x1_minus_x = x1 - x0 - x_minus_x0;
+				w = tanh_sinh_w_65points[-k];
+			}
+
+			I += f(x_minus_x0, x1_minus_x) * w;
+		}
+		I *= (x1 - x0) / 2;
+		return I;
+
+
+	}
 	double TanhSinh65Points(std::function<double(double x)> const &f, double x0, double x1)
 	{
 
@@ -220,11 +247,11 @@ namespace Diff {
 
 			double x;
 			double w;
-			if (k >= 0) x = x1 - 0.5 * ts_1_minus_x_65points[k] *(x1 - x0);
-			else if (k < 0) x = x0 + 0.5 * ts_1_minus_x_65points[-k] * (x1 - x0);
+			if (k >= 0) x = x1 - 0.5 * tanh_sinh_1_minus_x_65points[k] *(x1 - x0);
+			else if (k < 0) x = x0 + 0.5 * tanh_sinh_1_minus_x_65points[-k] * (x1 - x0);
 
-			if (k >= 0) w = ts_w_65points[k];
-			else if (k < 0) w = ts_w_65points[-k];
+			if (k >= 0) w = tanh_sinh_w_65points[k];
+			else if (k < 0) w = tanh_sinh_w_65points[-k];
 
 			I += f(x) * w;
 		}
