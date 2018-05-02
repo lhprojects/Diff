@@ -159,6 +159,7 @@
     <ClCompile Include="..\..\TestDiff.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Constants.h" />
     <ClInclude Include="..\..\Num.h" />
     <ClInclude Include="..\..\Quad.h" />
   </ItemGroup>

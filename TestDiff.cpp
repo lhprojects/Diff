@@ -1,6 +1,7 @@
 #include "Diff.h"
 #include "Func.h"
 #include "Num.h"
+#include "Quad.h"
 #include <chrono>
 #include <math.h>
 #include <cmath>
@@ -848,6 +849,51 @@ void test_num() {
 }
 
 
+void test_quad() {
+
+	TEST_SAME(GaussianLegendre16Points([](double x) { return x*x; }, 0, 1), 1. / 3);
+	TEST_SAME(GaussianLegendre64Points([](double x) { return x*x; }, 0, 1), 1. / 3);
+	TEST_SAME(TanhSinh65Points([](double x) { return x*x; }, 0, 1), 1. / 3);
+	TEST_SAME(Tanh65Points([](double x) { return x*x; }, 0, 1), 1. / 3);
+	TEST_SAME(Erf65Points([](double x) { return x*x; }, 0, 1), 1. / 3);
+	printf("GL16     %.20f\n", GaussianLegendre16Points([](double x) { return x*x; }, 0, 1));
+	printf("GL64     %.20f\n", GaussianLegendre64Points([](double x) { return x*x; }, 0, 1));
+	printf("TanhSinh %.20f\n", TanhSinh65Points([](double x) { return x*x; }, 0, 1));
+	printf("Tanh     %.20f\n", Tanh65Points([](double x) { return x*x; }, 0, 1));
+	printf("Erf      %.20f\n", Erf65Points([](double x) { return x*x; }, 0, 1));
+
+	TEST_SAME(GaussianLegendre16Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+	TEST_SAME(GaussianLegendre64Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+	TEST_SAME(TanhSinh65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+	TEST_SAME(Tanh65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+	TEST_SAME(Erf65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+	printf("GL16     %.20f\n", GaussianLegendre16Points([](double x) { return sqrt(x); }, 0, 1));
+	printf("GL64     %.20f\n", GaussianLegendre64Points([](double x) { return sqrt(x); }, 0, 1));
+	printf("TanhSinh %.20f\n", TanhSinh65Points([](double x) { return sqrt(x); }, 0, 1));
+	printf("Tanh     %.20f\n", Tanh65Points([](double x) { return sqrt(x); }, 0, 1));
+	printf("Erf      %.20f\n", Erf65Points([](double x) { return sqrt(x); }, 0, 1));
+
+	// these two will fail
+	//TEST_SAME(GaussianLegendre16Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2. / 3);
+	//TEST_SAME(GaussianLegendre64Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2. / 3);
+	TEST_SAME(TanhSinh65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
+	TEST_SAME(Tanh65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
+	TEST_SAME(Erf65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
+	printf("GL16     %.20f\n", GaussianLegendre16Points([](double x) { return 1 / sqrt(x); }, 0, 1));
+	printf("GL64     %.20f\n", GaussianLegendre64Points([](double x) { return 1 / sqrt(x); }, 0, 1));
+	printf("TanhSinh %.20f\n", TanhSinh65Points([](double x) { return 1 / sqrt(x); }, 0, 1));
+	printf("Tanh     %.20f\n", Tanh65Points([](double x) { return 1 / sqrt(x); }, 0, 1));
+	printf("Erf      %.20f\n", Erf65Points([](double x) { return 1 / sqrt(x); }, 0, 1));
+
+	printf("GL16     %+.20f\n", GaussianLegendre16Points([](double x) { return 1 / (1 + 20 * x*x); }, 0, 1) - 0.302049929383142873916842364599);
+	printf("GL64     %+.20f\n", GaussianLegendre64Points([](double x) { return 1 / (1 + 20 * x*x); }, 0, 1) - 0.302049929383142873916842364599);
+	printf("TanhSinh %+.20f\n", TanhSinh65Points([](double x) { return 1 / (1 + 20 * x*x); }, 0, 1) - 0.302049929383142873916842364599);
+	printf("Tanh     %+.20f\n", Tanh65Points([](double x) { return 1 / (1 + 20 * x*x); }, 0, 1) - 0.302049929383142873916842364599);
+	printf("Erf      %+.20f\n", Erf65Points([](double x) { return 1 / (1 + 20 * x*x); }, 0, 1) - 0.302049929383142873916842364599);
+
+
+}
+
 int main() {
 #if _MSC_VER
 	system("dir\n");
@@ -855,8 +901,9 @@ int main() {
 	system("dir\n");
 #endif // 0
 	TEST_TRUE(DCount.size() == 0);
-	test_V();
 	test_num();
+	test_quad();
+	test_V();
 	test_Diff();
 	fix_var();
 	testfunc();

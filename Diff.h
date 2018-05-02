@@ -6,6 +6,7 @@
 #include <map>
 #include <stdint.h>
 #include "Num.h"
+#include "Constants.h"
 
 namespace Diff {
 

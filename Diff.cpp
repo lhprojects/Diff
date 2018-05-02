@@ -248,10 +248,6 @@ namespace Diff {
 		return result;
 	}
 
-	Expr D(Expr const &expr, std::pair<Expr const &, int> const &pair) {
-
-	}
-
 
 	size_t Expr::Nodes() const
 	{
