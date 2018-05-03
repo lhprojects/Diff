@@ -190,7 +190,8 @@ namespace Diff {
 	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
 
 
-	struct SumSecondArg {
+	struct SumSecondArg
+	{
 		Expr fExpr;
 		double fFist;
 		double fSecond;
