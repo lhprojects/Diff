@@ -85,7 +85,7 @@ namespace Diff {
 
 	struct RebindableExpr : Expr {
 		// bind nothing
-		RebindableExpr()  { }
+		RebindableExpr();
 		RebindableExpr(Expr const &s) : Expr(s) { }
 		RebindableExpr(Expr &&s) : Expr(std::move(s)) { }
 		// rebind is not allowed
@@ -159,10 +159,11 @@ namespace Diff {
 	template< > inline Var Cast<Var>(Expr const &expr) { return CastToVar(expr); }
 	template< > inline Const Cast<Const>(Expr const &expr) { return CastToConst(expr); }
 
-	Expr operator*(Expr const &s1, Expr const &s2);
-	Expr operator+(Expr const &s1, Expr const &s2);
-	Expr operator-(Expr const &s1, Expr const &s2);
-	Expr operator/(Expr const &s1, Expr const &s2);
+	Expr operator*(ExprOrDouble const &s1, ExprOrDouble const &s2);
+	Expr operator+(ExprOrDouble const &s1, ExprOrDouble const &s2);
+	Expr operator-(ExprOrDouble const &s1, ExprOrDouble const &s2);
+	Expr operator/(ExprOrDouble const &s1, ExprOrDouble const &s2);
+	inline Expr operator-(Expr const &s2) { return 0.0 - s2; }
 	Expr sqrt(Expr const &s);
 	Expr log(Expr const &s);
 	Expr pow(Expr const &s, double n);
@@ -182,48 +183,13 @@ namespace Diff {
 	Expr D(Expr const &expr, Expr const &var, int i);
 	Expr D(Expr const &expr, std::pair<Expr, int> const &pair);
 
-	// int_from^to dx y
-	Expr Integrate(Var const &x, Expr const &from, Expr const &to, Expr const &y);
-	inline Expr Integrate(Var const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
-	inline Expr Integrate(Var const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
-	inline Expr Integrate(Var const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
+	Expr Integrate(ExprOrDouble const &y, Expr const &x, ExprOrDouble const &from, ExprOrDouble const &to);
+	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, Expr const &x, ExprOrDouble const &from, ExprOrDouble const &to);
 
-	inline Expr Integrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y) { return Integrate(CastToVar(x), from, to, y); }
-	inline Expr Integrate(Expr const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
-	inline Expr Integrate(Expr const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
-	inline Expr Integrate(Expr const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
-	Expr Integrate(Expr const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
+	Expr Integrate(ExprOrDouble const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
+	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
 
 	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc = 1);
-	Expr GaussLegendre64PointsIntegrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y);
-	inline Expr operator+(Expr const &s1, double s2) {
-		return s1 + Const(s2);
-	}
-	inline Expr operator+(double s1, Expr const &s2) {
-		return Const(s1) + s2;
-	}
-	inline Expr operator-(Expr const &s1, double s2) {
-		return s1 - Const(s2);
-	}
-	inline Expr operator-(double s1, Expr const &s2) {
-		return Const(s1) - s2;
-	}
-	inline Expr operator*(Expr const &s1, double s2) {
-		return s1 * Const(s2);
-	}
-	inline Expr operator*(double s1, Expr const &s2) {
-		return Const(s1) * s2;
-	}
-	inline Expr operator/(Expr const &s1, double s2) {
-		return s1 / Const(s2);
-	}
-	inline Expr operator/(double s1, Expr const &s2) {
-		return Const(s1) / s2;
-	}
-
-	inline Expr operator-(Expr const &s2) {
-		return 0.0 - s2;
-	}
 
 	// reference count information
 	// key: the pointer to Expression object

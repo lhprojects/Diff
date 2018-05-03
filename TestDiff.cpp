@@ -458,46 +458,46 @@ void test_int() {
 
 	{ // basic test
 		Var x = 0;
-		TEST_SAME(Integrate(x*x, { x, Const(0), Const(1) }).V(), 1. / 3);
-		TEST_SAME(GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).V(), 1. / 3);
-		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x, 0, 1, x*x).V() - 1 / 3.0);
-		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).V() - 1 / 3.0);
-		printf("Integrate(x, 0, 1, x*x)    : %s\n", GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).ToString().c_str());
+		TEST_SAME(Integrate(x*x, { x, 0, 1 }).V(), 1. / 3);
+		TEST_SAME(GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).V(), 1. / 3);
+		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x*x, { x, 0, 1 }).V() - 1 / 3.0);
+		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).V() - 1 / 3.0);
+		printf("Integrate(x, 0, 1, x*x)    : %s\n", GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).ToString().c_str());
 
-		TEST_SAME(Integrate(x, 0, 1, exp(-x)).V(), 1 - exp(-1));
-		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(x, 0, 1, exp(-x)).V() - (1 - exp(-1)));
-		TEST_SAME(Integrate(x, 0, 1, exp(x)).V(), exp(1) - 1);
-		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(x, 0, 1, exp(x)).V() - (exp(1) - 1));
-		TEST_SAME(Integrate(x, 0, PI, sin(x)).V(), 2);
+		TEST_SAME(Integrate(exp(-x), { x, 0, 1 }).V(), 1 - exp(-1));
+		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(exp(-x), { x, 0, 1 }).V() - (1 - exp(-1)));
+		TEST_SAME(Integrate(exp(x), { x, 0, 1 }).V(), exp(1) - 1);
+		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(exp(x), { x, 0, 1 }).V() - (exp(1) - 1));
+		TEST_SAME(Integrate(sin(x), { x, 0, PI }).V(), 2);
 	}
 
 	{ // test for large range
 		Var x = 0;
-		printf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(x, 0, PI, sin(x)).V()-2);
-		printf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(x, 0, 3*PI, sin(x)).V() - 2);
-		printf("Integrate(x, 0,  9PI, sin(x))-2: %+e\n", Integrate(x, 0, 9*PI, sin(x)).V() - 2);
-		printf("Integrate(x, 0, 17PI, sin(x))-2: %+e\n", Integrate(x, 0, 17*PI, sin(x)).V() - 2);
-		printf("Integrate(x, 0, 33PI, sin(x))-2: %+e\n", Integrate(x, 0, 33*PI, sin(x)).V() - 2);
-		printf("Integrate(x, 0, 65PI, sin(x))-2: %+e\n", Integrate(x, 0, 65 * PI, sin(x)).V() - 2);
-		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(x, 0, 129* PI, sin(x)).V() - 2);
+		printf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, PI }).V() - 2);
+		printf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 3 * PI }).V() - 2);
+		printf("Integrate(x, 0,  9PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 9 * PI }).V() - 2);
+		printf("Integrate(x, 0, 17PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 17 * PI }).V() - 2);
+		printf("Integrate(x, 0, 33PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 33 * PI }).V() - 2);
+		printf("Integrate(x, 0, 65PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 65 * PI }).V() - 2);
+		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 129 * PI }).V() - 2);
 	}
 
 	{ // sqrt
 		Var x = 0;
-		TEST_SAME(Integrate(x, 0, 1, sqrt(x)).V(), 2 / 3.0);
-		TEST_SAME(Integrate(x, 0, 1, pow(x, 3. / 2)).V(), 2 / 5.0);
-		TEST_SAME(Integrate(x, 0, 1, pow(x, 5. / 2)).V(), 2 / 7.0);
-		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.)'   : %.20f\n", Integrate(x, 0, 1, sqrt(x)).V() - (2 / 3.0));
-		printf("Integrate(x, 0, 1, pow(x,3/2))-(2/5.)': %.20f\n", Integrate(x, 0, 1, pow(x, 3. / 2)).V() - (2 / 5.0));
-		printf("Integrate(x, 0, 1, pow(x,5/2))-(2/7.)': %.20f\n", Integrate(x, 0, 1, pow(x, 5. / 2)).V() - (2 / 7.0));
+		TEST_SAME(Integrate(sqrt(x), { x, 0, 1 }).V(), 2 / 3.0);
+		TEST_SAME(Integrate(pow(x, 3. / 2), { x, 0, 1 }).V(), 2 / 5.0);
+		TEST_SAME(Integrate(pow(x, 5. / 2), { x, 0, 1 }).V(), 2 / 7.0);
+		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.)'   : %.20f\n", Integrate(sqrt(x), { x, 0, 1 }).V() - (2 / 3.0));
+		printf("Integrate(x, 0, 1, pow(x,3/2))-(2/5.)': %.20f\n", Integrate(pow(x, 3. / 2), { x, 0, 1 }).V() - (2 / 5.0));
+		printf("Integrate(x, 0, 1, pow(x,5/2))-(2/7.)': %.20f\n", Integrate(pow(x, 5. / 2), { x, 0, 1 }).V() - (2 / 7.0));
 	}
 
 	{ // basic D
 		Var t("t", 1);
 		Var x("x", 0);
-		Expr y = Integrate(x, Const(0), t, x*x*t);
+		Expr y = Integrate(x*x*t, { x, 0, t });
 
-		Expr yopen = GaussLegendre64PointsIntegrate(x, Const(0), t, x*x*t);
+		Expr yopen = GaussLegendre64PointsIntegrate(x*x*t, { x, 0, t });
 
 		TEST_SAME(y.V(), 1 / 3.0);
 		TEST_SAME(D(y, t).V(), 1 / 3.0 + 1);
@@ -509,12 +509,12 @@ void test_int() {
 	{ // sqrt'
 		Var x = 0;
 		Var t = 1;
-		TEST_SAME(Integrate(x, 0, t, sqrt(t - x)).V(), 2 / 3.0);
-		TEST_SAME(GaussLegendre64PointsIntegrate(x, Const(0), t, sqrt(t - x)).V(), 2 / 3.0);
-		TEST_TRUE(fabs(D(Integrate(x, 0, t, sqrt(t - x)), t).V() - 1) < 0.01);
-		TEST_SAME(D(GaussLegendre64PointsIntegrate(x, Const(0), t, sqrt(t - x)), t).V(), 1);
-		printf("Integrate(x, 0, t, sqrt(t - x))'                      - 1: %+.6e\n", D(Integrate(x, 0, t, sqrt(t - x)), t).V() - 1);
-		printf("GaussLegendre64PointsIntegrate(x, 0, t, sqrt(t - x))' - 1: %+.6e\n", D(GaussLegendre64PointsIntegrate(x, Const(0), t, sqrt(t - x)), t).V() - 1);
+		TEST_SAME(Integrate(sqrt(t - x), { x, 0, t }).V(), 2 / 3.0);
+		TEST_SAME(GaussLegendre64PointsIntegrate(sqrt(t - x), { x, Const(0), t }).V(), 2 / 3.0);
+		TEST_TRUE(fabs(D(Integrate(sqrt(t - x), { x, 0, t }), t).V() - 1) < 0.01);
+		TEST_SAME(D(GaussLegendre64PointsIntegrate(sqrt(t - x), { x, 0, t }), t).V(), 1);
+		printf("Integrate(x, 0, t, sqrt(t - x))'                      - 1: %+.6e\n", D(Integrate(sqrt(t - x), { x, 0, t }), t).V() - 1);
+		printf("GaussLegendre64PointsIntegrate(x, 0, t, sqrt(t - x))' - 1: %+.6e\n", D(GaussLegendre64PointsIntegrate(sqrt(t - x), { x, 0, t }), t).V() - 1);
 	}
 
 }
@@ -955,6 +955,7 @@ int main() {
 	test_int();
 	test_for();
 	test_code();
+	Expr a;
 
 	printf("%d test(s) failed\n", n_failed);
 	return n_failed;

@@ -329,6 +329,11 @@ namespace Diff {
 	/****************************	DExpr	end *********************************************/
 
 	/****************************	RebindableExpr	begin  *********************************************/
+	
+	RebindableExpr::RebindableExpr() : Expr() {
+
+	}
+
 
 	RebindableExpr &RebindableExpr::operator=(Expr const &s) {
 		if (&s != this) {
@@ -1635,7 +1640,7 @@ namespace Diff {
 			if (x0_.fImpl == fX0.fImpl && x1_.fImpl == fX1.fImpl && y_.fImpl == fY.fImpl) {
 				return *this;
 			}
-			return Integrate(fX, x0_, x1_, y_);
+			return Integrate(y_, { fX, x0_, x1_ });
 		}
 
 
@@ -1657,7 +1662,7 @@ namespace Diff {
 				d1 = dx1 * fY.ReplaceVariable(fX, fX1);
 			}
 
-			Expr d2 = Integrate(fX, fX0, fX1, D(fY, s));
+			Expr d2 = Integrate(D(fY, s), { fX, fX0, fX1 });
 
 			return d0 + d1 + d2;
 		}
@@ -1855,7 +1860,8 @@ namespace Diff {
 
 	};
 
-	Expr operator*(Expr const &s1, Expr const &s2) {
+	Expr operator*(ExprOrDouble const &s1, ExprOrDouble const &s2)
+	{
 		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 1) {
 			return s2;
 		} else if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 0) {
@@ -1872,7 +1878,8 @@ namespace Diff {
 		return *new DMul(s1, s2);
 	}
 
-	Expr operator+(Expr const &s1, Expr const &s2) {
+	Expr operator+(ExprOrDouble const &s1, ExprOrDouble const &s2)
+	{
 		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 0) {
 			return s2;
 		} else if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 0) {
@@ -1885,7 +1892,8 @@ namespace Diff {
 		return *new DAdd(s1, s2);
 	}
 
-	Expr operator-(Expr const &s1, Expr const &s2) {
+	Expr operator-(ExprOrDouble const &s1, ExprOrDouble const &s2)
+	{
 		if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 0) {
 			return s1;
 		} else if (s1.fImpl->IsConst() && s2.fImpl->IsConst()) {
@@ -1896,7 +1904,8 @@ namespace Diff {
 		return *new DSub(s1, s2);
 	}
 
-	Expr operator/(Expr const &s1, Expr const &s2) {
+	Expr operator/(ExprOrDouble const &s1, ExprOrDouble const &s2)
+	{
 		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 0) {
 			return Zero();
 		} else if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 1) {
@@ -1965,13 +1974,14 @@ namespace Diff {
 		return *new DCosh(s);
 	}
 
-	Expr Integrate(Var const &x, Expr const &from, Expr const &to, Expr const &y)
+	Expr Integrate(ExprOrDouble const &y, Expr const &x, ExprOrDouble const &from, ExprOrDouble const &to)
 	{
-		return *new IntegralImpl(x, from, to, y);
+		Var var = CastToVar(x);
+		return *new IntegralImpl(var, from, to, y);
 	}
 
 
-	Expr Integrate(Expr const & y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const & x)
+	Expr Integrate(ExprOrDouble const & y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const & x)
 	{
 		Var var = CastToVar(std::get<0>(x));
 		return *new IntegralImpl(var, std::get<1>(x), std::get<2>(x), y);
@@ -1982,7 +1992,7 @@ namespace Diff {
 		return *new SumImpl(expr, CastToVar(var), first, last, inc);
 	}
 
-	Expr GaussLegendre64PointsIntegrate(Expr const &x_, Expr const &from, Expr const &to, Expr const &y)
+	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, Expr const &x_, ExprOrDouble const &from, ExprOrDouble const &to)
 	{
 		Var original_x = CastToVar(x_);
 		Var i = 0;
@@ -1992,6 +2002,11 @@ namespace Diff {
 		Expr sd = y.ReplaceVariable(original_x, x) * w;
 		Expr h = 0.5 * (to - from) * Sum(sd, i, 0, 63, 1);
 		return h;
+	}
+
+	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x)
+	{
+		return GaussLegendre64PointsIntegrate(y, std::get<0>(x), std::get<1>(x), std::get<2>(x));
 	}
 
 
