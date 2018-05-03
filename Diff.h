@@ -142,7 +142,7 @@ namespace Diff {
 	{
 		ExprOrDouble(Expr const &s) : Expr(s) { }
 		ExprOrDouble(Expr &&s) : Expr(std::move(s)) { }
-		ExprOrDouble(double x) : Expr(Const(x)) { }
+		ExprOrDouble(double x);
 	};
 
 	// reflection functions

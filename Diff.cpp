@@ -2006,4 +2006,8 @@ namespace Diff {
 		}
 		return *new DPowN(s, n);
 	}
+
+	ExprOrDouble::ExprOrDouble(double v) : Expr(*get_impl(v))
+	{
+	}
 }
