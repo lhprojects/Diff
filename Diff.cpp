@@ -240,12 +240,18 @@ namespace Diff {
 		return expr.fImpl->DoDMem(var);
 	}
 
-	Expr D(Expr const &expr, std::pair<Expr, int> const &pair) {
+	Expr D(Expr const &expr, Expr const &var, int n)
+	{
 		RebindableExpr result = expr;
-		for (int i = 0; i < pair.second; ++i) {
-			result = D(result, pair.first);
+		for (int i = 0; i < n; ++i) {
+			result = D(result, var);
 		}
 		return result;
+	}
+
+	Expr D(Expr const &expr, std::pair<Expr, int> const &pair)
+	{
+		return D(expr, pair.first, pair.second);
 	}
 
 
@@ -1964,6 +1970,12 @@ namespace Diff {
 		return *new IntegralImpl(x, from, to, y);
 	}
 
+
+	Expr Integrate(Expr const & y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const & x)
+	{
+		Var var = CastToVar(std::get<0>(x));
+		return *new IntegralImpl(var, std::get<1>(x), std::get<2>(x), y);
+	}
 
 	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc)
 	{

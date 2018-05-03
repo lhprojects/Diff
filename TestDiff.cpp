@@ -458,7 +458,7 @@ void test_int() {
 
 	{ // basic test
 		Var x = 0;
-		TEST_SAME(Integrate(x, 0, 1, x*x).V(), 1. / 3);
+		TEST_SAME(Integrate(x*x, { x, Const(0), Const(1) }).V(), 1. / 3);
 		TEST_SAME(GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).V(), 1. / 3);
 		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x, 0, 1, x*x).V() - 1 / 3.0);
 		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).V() - 1 / 3.0);

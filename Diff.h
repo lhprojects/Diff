@@ -21,11 +21,6 @@ namespace Diff {
 	struct Var;
 	struct CCode;
 
-	// make a Expression object reprent the differential respect` s`
-	// `var` must be handler of Variable object
-	Expr D(Expr const &expr, Expr const &var);
-	Expr D(Expr const &expr, std::pair<Expr, int> const &pair);
-
 
 	// a handler of Expression object
 	struct Expr
@@ -143,6 +138,13 @@ namespace Diff {
 	};
 
 
+	struct ExprOrDouble : Expr
+	{
+		ExprOrDouble(Expr const &s) : Expr(s) { }
+		ExprOrDouble(Expr &&s) : Expr(std::move(s)) { }
+		ExprOrDouble(double x) : Expr(Const(x)) { }
+	};
+
 	// reflection functions
 	bool IsVar(Expr const &);
 	bool IsConst(Expr const &);
@@ -173,6 +175,13 @@ namespace Diff {
 	inline Expr POW4(Expr const &s) { return pow(s, 4); }
 	inline Expr pow2(Expr const &s) { return pow(s, 2); }
 	inline Expr pow4(Expr const &s) { return pow(s, 4); }
+
+	// make a Expression object reprent the differential respect` s`
+	// `var` must be handler of Variable object
+	Expr D(Expr const &expr, Expr const &var);
+	Expr D(Expr const &expr, Expr const &var, int i);
+	Expr D(Expr const &expr, std::pair<Expr, int> const &pair);
+
 	// int_from^to dx y
 	Expr Integrate(Var const &x, Expr const &from, Expr const &to, Expr const &y);
 	inline Expr Integrate(Var const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
@@ -183,10 +192,10 @@ namespace Diff {
 	inline Expr Integrate(Expr const &x, double x0, Expr const &to, Expr const &y) { return Integrate(x, Const(x0), to, y); }
 	inline Expr Integrate(Expr const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
 	inline Expr Integrate(Expr const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
+	Expr Integrate(Expr const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
 
 	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc = 1);
 	Expr GaussLegendre64PointsIntegrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y);
-
 	inline Expr operator+(Expr const &s1, double s2) {
 		return s1 + Const(s2);
 	}
