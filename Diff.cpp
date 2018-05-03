@@ -1992,6 +1992,12 @@ namespace Diff {
 		return *new SumImpl(expr, CastToVar(var), first, last, inc);
 	}
 
+	Expr Sum(Expr const &expr, SumSecondArg const &arg)
+	{
+		return *new SumImpl(expr, CastToVar(arg.fExpr), arg.fFist, arg.fSecond, arg.fInc);
+	}
+
+
 	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, Expr const &x_, ExprOrDouble const &from, ExprOrDouble const &to)
 	{
 		Var original_x = CastToVar(x_);

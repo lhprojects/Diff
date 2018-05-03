@@ -944,7 +944,15 @@ void test_quad() {
 }
 
 
-int main() {
+void test_sum() {
+
+	Var x = 0;
+	TEST_SAME(Sum(x, { x, 0, 10, 1 }).V(), 11 * 5);
+	TEST_SAME(Sum(x, { x, 0, 10 }).V(), 11 * 5);
+}
+
+int main()
+{
 	TEST_TRUE(DCount.size() == 0);
 	test_num();
 	test_quad();
@@ -953,9 +961,10 @@ int main() {
 	fix_var();
 	testfunc();
 	test_int();
+	test_sum();
 	test_for();
 	test_code();
-	Expr a;
+	
 
 	printf("%d test(s) failed\n", n_failed);
 	return n_failed;

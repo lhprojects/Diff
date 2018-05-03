@@ -189,7 +189,18 @@ namespace Diff {
 	Expr Integrate(ExprOrDouble const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
 	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, std::tuple<Expr, ExprOrDouble, ExprOrDouble> const &x);
 
+
+	struct SumSecondArg {
+		Expr fExpr;
+		double fFist;
+		double fSecond;
+		double fInc;
+		SumSecondArg(ExprOrDouble const &a, double b, double c, double d = 1) : fExpr(a), fFist(b), fSecond(c), fInc(d) { }
+	};
+
+
 	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc = 1);
+	Expr Sum(Expr const &expr, SumSecondArg const &arg);
 
 	// reference count information
 	// key: the pointer to Expression object
