@@ -184,6 +184,7 @@ namespace Diff {
 	inline Expr Integrate(Expr const &x, Expr const &from, double to, Expr const &y) { return Integrate(x, from, Const(to), y); }
 	inline Expr Integrate(Expr const &x, double from, double to, Expr const &y) { return Integrate(x, Const(from), Const(to), y); }
 
+	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc = 1);
 	Expr GaussLegendre64PointsIntegrate(Expr const &x, Expr const &from, Expr const &to, Expr const &y);
 
 	inline Expr operator+(Expr const &s1, double s2) {

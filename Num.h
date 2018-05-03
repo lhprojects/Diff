@@ -8,7 +8,7 @@ namespace Diff {
 	struct Num {
 
 		Num(double v, double e1, double e2) { fE1 = e1; fV = v; fE2 = e2; }
-
+		Num & operator=(Num const &) = default;
 		double V() const { return fV; }
 		double E1() const { return fE1; }
 		double E2() const { return fE2; }

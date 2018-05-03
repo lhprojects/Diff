@@ -462,15 +462,17 @@ void test_int() {
 		TEST_SAME(GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).V(), 1. / 3);
 		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x, 0, 1, x*x).V() - 1 / 3.0);
 		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).V() - 1 / 3.0);
-	}
+		printf("Integrate(x, 0, 1, x*x)    : %s\n", GaussLegendre64PointsIntegrate(x, Const(0), Const(1), x*x).ToString().c_str());
 
-	{ // test for precision
-		Var x = 0;
 		TEST_SAME(Integrate(x, 0, 1, exp(-x)).V(), 1 - exp(-1));
 		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(x, 0, 1, exp(-x)).V() - (1 - exp(-1)));
 		TEST_SAME(Integrate(x, 0, 1, exp(x)).V(), exp(1) - 1);
 		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(x, 0, 1, exp(x)).V() - (exp(1) - 1));
 		TEST_SAME(Integrate(x, 0, PI, sin(x)).V(), 2);
+	}
+
+	{ // test for large range
+		Var x = 0;
 		printf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(x, 0, PI, sin(x)).V()-2);
 		printf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(x, 0, 3*PI, sin(x)).V() - 2);
 		printf("Integrate(x, 0,  9PI, sin(x))-2: %+e\n", Integrate(x, 0, 9*PI, sin(x)).V() - 2);
@@ -483,16 +485,14 @@ void test_int() {
 	{ // sqrt
 		Var x = 0;
 		TEST_SAME(Integrate(x, 0, 1, sqrt(x)).V(), 2 / 3.0);
-		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.): %.20f\n", Integrate(x, 0, 1, sqrt(x)).V() - (2 / 3.0));
+		TEST_SAME(Integrate(x, 0, 1, pow(x, 3. / 2)).V(), 2 / 5.0);
+		TEST_SAME(Integrate(x, 0, 1, pow(x, 5. / 2)).V(), 2 / 7.0);
+		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.)'   : %.20f\n", Integrate(x, 0, 1, sqrt(x)).V() - (2 / 3.0));
+		printf("Integrate(x, 0, 1, pow(x,3/2))-(2/5.)': %.20f\n", Integrate(x, 0, 1, pow(x, 3. / 2)).V() - (2 / 5.0));
+		printf("Integrate(x, 0, 1, pow(x,5/2))-(2/7.)': %.20f\n", Integrate(x, 0, 1, pow(x, 5. / 2)).V() - (2 / 7.0));
 	}
 
-	{
-		//Var x("x", 0);
-		//Expr y = Integrate(x, Const(0), 1, 1/sqrt(x));
-		//TEST_SAME(y.V(), 2);
-	}
-
-	{
+	{ // basic D
 		Var t("t", 1);
 		Var x("x", 0);
 		Expr y = Integrate(x, Const(0), t, x*x*t);
@@ -653,7 +653,7 @@ void test_code()
 		__m256d(*ptr_avx[])(__m256d, __m256d) = { X_Ws_D0_avx, X_Ws_D1_avx, X_Ws_D2_avx,
 			X_Ws_D3_avx, X_Ws_D4_avx, X_Ws_D5_avx, X_Ws_D6_avx };
 #endif
-		double delta = 0.00001;
+		double delta = 0.0001;
 		int Nj = (int)(1 / delta) - 10;
 		for (int i = 0; i <= NMax; ++i) {
 			int Njj = Nj;
@@ -669,11 +669,11 @@ void test_code()
 					sum += ptr[i](140, theta);
 					theta += delta;
 				}
-				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
 				if (i >= 3)
-					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("cpp double order %d, time: 10x%10.1fus, value: %f\n", i, (double)d.count(), sum);
 				else
-					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("cpp double order %d, time: %10.1fus, value: %f\n", i, (double)d.count(), sum);
 			}
 			{
 				auto t0 = std::chrono::high_resolution_clock::now();
@@ -689,11 +689,11 @@ void test_code()
 					theta += delta;
 					theta += delta;
 				}
-				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
 				if (i >= 3)
-					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("avx double order %d, time: 10x%10.1fus, value: %f\n", i, (double)d.count(), sum);
 				else
-					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("avx double order %d, time: %10.1fus, value: %f\n", i, (double)d.count(), sum);
 			}
 #endif
 			{
@@ -705,11 +705,11 @@ void test_code()
 					sum += f.X_Ws.at(i).V();
 					theta += delta;
 				}
-				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
 				if(i >= 3)
-					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("tre double order %d, time: 10x%10.1fus, value: %f\n", i, (double)d.count(), sum);
 				else
-					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("tre double order %d, time: %10.1fus, value: %f\n", i, (double)d.count(), sum);
 
 			}
 			{
@@ -722,11 +722,11 @@ void test_code()
 					sum += f.X_Ws.at(i).VE().V();
 					theta += delta;
 				}
-				auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t0);
+				auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
 				if (i >= 3)
-					printf("tre order %d, time: 10x%7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("tre num    order %d, time: 10x%10.1fus, value: %f\n", i, (double)d.count(), sum);
 				else
-					printf("tre order %d, time: %7.1fms, value: %f\n", i, (double)d.count(), sum);
+					printf("tre num    order %d, time: %10.1fus, value: %f\n", i, (double)d.count(), sum);
 			}
 		}
 	}
@@ -929,9 +929,20 @@ void test_quad() {
 		TEST_SAME(TanhSinh65Points([](double x1, double x2) { 
 			return 1/sqrt(x1*x2); },
 			0, 1), 3.1415926535897932384);
+		TEST_SAME(TanhSinh65Points([](double x) {
+			double one_minus_x = 1 - x;
+			if (one_minus_x == 0) one_minus_x = 1 - nextafter(1, -1);
+			return 1 / sqrt(x*one_minus_x);
+		}, 0, 1), 3.1415926535897932384);
 		printf("TanhSinh [ 0, 1 ] 1/sqrt(x(1-x)) %+.6e\n", TanhSinh65Points([](double x, double x2) { return 1 / sqrt(x*x2); }, 0, 1) - Pi);
+		printf("TanhSinh [ 0, 1 ] 1/sqrt(x(1-x)) %+.6e\n", TanhSinh65Points([](double x) { 
+			double one_minus_x = 1 - x;
+			if (one_minus_x == 0) one_minus_x = 1 - nextafter(1, -1);
+			return 1 / sqrt(x*one_minus_x);
+		}, 0, 1) - Pi);
 	}
 }
+
 
 int main() {
 	TEST_TRUE(DCount.size() == 0);

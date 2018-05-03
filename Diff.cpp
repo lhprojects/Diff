@@ -1680,6 +1680,175 @@ namespace Diff {
 	};
 
 
+	struct SumImpl : DExprImpl
+	{
+		Var fI;
+		Expr fExpr;
+		double fFirst;
+		double fLast;
+		double fInc;
+
+		SumImpl(Expr const &s1, Var const &i, double first, double last, double inc) : fI(i), fExpr(s1), fFirst(first), fLast(last), fInc(inc) {
+		}
+
+		void AddNode(std::set<DExprImpl const*> &nodes) const override
+		{
+			nodes.insert(this);
+			fExpr.fImpl->AddNode(nodes);
+		}
+
+		double DoV() const
+		{
+			double s = 0;
+			for (double i = fFirst; i <= fLast; i += fInc) {
+				fI.SetV(i);
+				s += fExpr.V();
+			}
+			return s;
+		}
+
+
+		Num DoVE() const override {
+			Num s(0, 0, 0);
+			for (double i = fFirst; i <= fLast; i += fInc) {
+				fI.SetV(i);
+				s = s + fExpr.VE();
+			}
+			return s;
+		}
+
+		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
+			auto x0_ = fExpr.ReplaceVariable(s, expr);
+			if (x0_.fImpl == fExpr.fImpl) {
+				return *this;
+			}
+			return Sum(x0_, fI, fFirst, fLast, fInc);
+		}
+
+
+		Expr DoD(Var const &s) const
+		{
+			return Sum(D(fExpr, s), fI, fFirst, fLast, fInc);
+		}
+
+		void DoToCCode(std::string &sb) const
+		{
+			throw std::logic_error("not implemented");
+		}
+
+		void DoToAVXCode(std::string &sb) const
+		{
+			throw std::logic_error("not implemented");
+		}
+
+		void ToString(std::string &sb) const override
+		{
+			sb.append("sum(");
+			fExpr.fImpl->ToString(sb);
+			sb.append(",");
+			fI.fImpl->ToString(sb);
+			sb.append(",").append(ToStr(fFirst));
+			sb.append(",").append(ToStr(fLast));
+			sb.append(",").append(ToStr(fInc));
+			sb.append("£©");
+		}
+
+	};
+
+	struct GL64Weightmpl : DExprImpl {
+
+		Var fIndex;
+		GL64Weightmpl(Var const &var) : fIndex(var) {
+		}
+
+		void AddNode(std::set<DExprImpl const*> &s) const override {
+			s.insert(this);
+			fIndex.fImpl->AddNode(s);
+		}
+
+		double DoV() const override {
+			int idx = (int)fIndex.fImpl->VMem();
+			if (idx >= 32) idx = idx - 32;
+			return gl_w_64points[idx];
+		}
+
+		Num DoVE() const { throw std::logic_error("not implemented"); }
+		Expr DoD(Var const &s) const { 
+			if (s.Uid() == fIndex.Uid()) {
+				throw std::logic_error("not implemented");
+			}
+			return Const(0);
+		}
+		
+		void ToString(std::string &sb) const override {
+			sb.append("gl_w[i]");
+		}
+
+		void DoToCCode(std::string &sb) const override {
+			throw std::logic_error("not implemented");
+		}
+		
+		void DoToAVXCode(std::string &sb) const override {
+			throw std::logic_error("not implemented");
+		}
+
+		// expr can't have a reference to any parent of s
+		Expr DoReplaceVariable(Var const &s, Expr const &expr) const {
+			if (fIndex.Uid() == expr.Uid()) {
+				return *this;
+			}
+			return *new GL64Weightmpl(CastToVar(expr));
+		}
+
+	};
+
+	struct GL64Ximpl : DExprImpl {
+
+		Var fIndex;
+		GL64Ximpl(Var const &var) : fIndex(var) {
+		}
+
+		void AddNode(std::set<DExprImpl const*> &s) const override {
+			s.insert(this);
+			fIndex.fImpl->AddNode(s);
+		}
+
+		double DoV() const override {
+			int idx = (int)fIndex.fImpl->VMem();
+			if (idx >= 32) {
+				idx = idx - 32;
+				return -gl_x_64points[idx];
+			} else {
+				return gl_x_64points[idx];
+			}
+		}
+
+		Num DoVE() const override { throw std::logic_error("not implemented"); }
+		Expr DoD(Var const &s) const {
+			if (s.Uid() == fIndex.Uid()) {
+				throw std::logic_error("not implemented");
+			}
+			return Const(0);
+		}
+		void ToString(std::string &sb) const override {
+			sb.append("gl_xi[i]");
+		}
+		virtual void DoToCCode(std::string &sb) const {
+			throw std::logic_error("not implemented");
+		}
+		virtual void DoToAVXCode(std::string &sb) const {
+			throw std::logic_error("not implemented");
+		}
+		// expr can't have a reference to any parent of s
+		virtual Expr DoReplaceVariable(Var const &s, Expr const &expr) const {
+			if (fIndex.Uid() == expr.Uid()) {
+				return *this;
+			}
+			return *new GL64Weightmpl(CastToVar(expr));
+		}
+
+	};
+
 	Expr operator*(Expr const &s1, Expr const &s2) {
 		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 1) {
 			return s2;
@@ -1795,27 +1964,22 @@ namespace Diff {
 		return *new IntegralImpl(x, from, to, y);
 	}
 
+
+	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc)
+	{
+		return *new SumImpl(expr, CastToVar(var), first, last, inc);
+	}
+
 	Expr GaussLegendre64PointsIntegrate(Expr const &x_, Expr const &from, Expr const &to, Expr const &y)
 	{
-		Var x = CastToVar(x_);
-		RebindableExpr h = Const(0);
-		for (int i = 0; i < 32; ++i) {
-			{
-				Expr xi = 0.5*(1 + gl_x_64points[i])*from + 0.5*(1 - gl_x_64points[i])*to;
-				h = h + y.fImpl->ReplaceVariable(x, xi) * gl_w_64points[i];
-				//printf("%d %f %f %f %f %f\n", i, xi.V(), gl_w_64points[i], xi.V()*xi.V(), y.fImpl->ReplaceVariable(x, xi).V(), h.V());
-			}
-			{
-				Expr xi = 0.5*(1 - gl_x_64points[i])*from + 0.5*(1 + gl_x_64points[i])*to;
-				h = h + y.fImpl->ReplaceVariable(x, xi) * gl_w_64points[i];
-				//printf("%d %f %f %f %f %f\n", i, xi.V(), gl_w_64points[i], xi.V()*xi.V(), y.fImpl->ReplaceVariable(x, xi).V(), h.V());
-			}
-		}
-		h = h * (to - from) / 2;
-
+		Var original_x = CastToVar(x_);
+		Var i = 0;
+		Expr xi = *new GL64Ximpl(i);
+		Expr x = 0.5*(1 - xi)*from + 0.5*(1 + xi)*to;
+		Expr w = *new GL64Weightmpl(i);
+		Expr sd = y.ReplaceVariable(original_x, x) * w;
+		Expr h = 0.5 * (to - from) * Sum(sd, i, 0, 63, 1);
 		return h;
-
-
 	}
 
 
