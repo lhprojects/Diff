@@ -25,7 +25,7 @@ namespace Diff {
 	// a handler of Expression object
 	struct Expr
 	{
-		// bind nothing
+		// bind nothing, it is empty
 		Expr() : fImpl(nullptr) { }
 		Expr(Expr const &s);
 		Expr(Expr &&s);
@@ -34,6 +34,7 @@ namespace Diff {
 		Expr &operator=(Expr &&) = delete;
 		~Expr();
 
+		// if nothing is binded
 		bool Empty() const { return fImpl == nullptr; }
 		// evaluate the value
 		double V() const;
@@ -63,10 +64,13 @@ namespace Diff {
 		CCode ToCCode() const;
 		CCode ToAVXCode() const;
 
+		// Unique id of an expression
+		// use it as key of unordered_map/_set or map/set
 		uint64_t Uid() const;
 		//private:
 
 		// replace a variable with a expresion
+		// any sub expressions of `expr` can't have a reference to the any sub expression of this
 		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		Expr(DExprImpl const &impl);
 		DExprImpl const *fImpl;
