@@ -522,53 +522,6 @@ void test_int() {
 
 
 #ifdef TEST_CCODE
-#include <immintrin.h>
-
-double hsum(__m256d x) {
-#ifdef _MSC_VER
-	__declspec(align(32)) double a[4] = { };//MSVC
-#else
-	__attribute__((aligned(32))) double a[4] = { };//GCC, ICC
-#endif
-       	_mm256_store_pd(a, x);
-	return a[0] + a[1] + a[2] + a[3];
-}
-
-__m256d _mm256_log_pd(__m256d x)
-{
-#ifdef _MSC_VER
-__declspec(align(32)) double a[4] = { };//MSVC
-#else
-__attribute__((aligned(32))) double a[4] = { };//GCC, ICC
-#endif
-
-	_mm256_store_pd(a, x);
-	a[0] = log(a[0]);
-	a[1] = log(a[1]);
-	a[2] = log(a[2]);
-	a[3] = log(a[3]);
-	return _mm256_load_pd(a);
-}
-
-__m256d _mm256_pow_pd(__m256d x,double n)
-{
-#ifdef _MSC_VER
-__declspec(align(32)) double a[4] = { };//MSVC
-#else
-__attribute__((aligned(32))) double a[4] = { };//GCC, ICC
-#endif
-
-	_mm256_store_pd(a, x);
-	a[0] = pow(a[0], n);
-	a[1] = pow(a[1], n);
-	a[2] = pow(a[2], n);
-	a[3] = pow(a[3], n);
-	return _mm256_load_pd(a);
-}
-
-
-
-
 #include "X_Ws_D0.h"
 #include "X_Ws_D1.h"
 #include "X_Ws_D2.h"
@@ -576,13 +529,6 @@ __attribute__((aligned(32))) double a[4] = { };//GCC, ICC
 #include "X_Ws_D4.h"
 #include "X_Ws_D5.h"
 #include "X_Ws_D6.h"
-#include "X_Ws_D0_avx.h"
-#include "X_Ws_D1_avx.h"
-#include "X_Ws_D2_avx.h"
-#include "X_Ws_D3_avx.h"
-#include "X_Ws_D4_avx.h"
-#include "X_Ws_D5_avx.h"
-#include "X_Ws_D6_avx.h"
 #endif
 
 
@@ -606,36 +552,19 @@ void test_code()
 
 		for (int i = 0; i <= NMax; ++i)
 		{
-			{
-				char b[1024];
-				sprintf(b, "X_Ws_D%d.h", i);
-				FILE *file = fopen(b, "w");
+			char b[1024];
+			sprintf(b, "X_Ws_D%d.h", i);
+			FILE *file = fopen(b, "w");
 
-				CCode ccode = f.X_Ws.at(i).ToCCode();
-				fprintf(file, "double X_Ws_D%d(double %s, double %s) {\n",
-					i,
-					ccode.Names[f.eH].c_str(),
-					ccode.Names[f.costheta].c_str());
-				fprintf(file, "%s", ccode.Body.c_str());
-				fprintf(file, "return %s; }", ccode.Names[f.X_Ws.at(i)].c_str());
+			CCode ccode = f.X_Ws.at(i).ToCCode();
+			fprintf(file, "double X_Ws_D%d(double %s, double %s) {\n",
+				i,
+				ccode.Names[f.eH].c_str(),
+				ccode.Names[f.costheta].c_str());
+			fprintf(file, "%s", ccode.Body.c_str());
+			fprintf(file, "return %s; }", ccode.Names[f.X_Ws.at(i)].c_str());
 
-				fclose(file);
-			}
-			{
-				char b[1024];
-				sprintf(b, "X_Ws_D%d_avx.h", i);
-				FILE *file = fopen(b, "w");
-
-				CCode ccode = f.X_Ws.at(i).ToAVXCode();
-				fprintf(file, "__m256d X_Ws_D%d_avx(__m256d %s, __m256d %s) {\n",
-					i,
-					ccode.Names[f.eH].c_str(),
-					ccode.Names[f.costheta].c_str());
-				fprintf(file, "%s", ccode.Body.c_str());
-				fprintf(file, "return %s; }", ccode.Names[f.X_Ws.at(i)].c_str());
-
-				fclose(file);
-			}
+			fclose(file);
 		}
 
 #ifdef TEST_CCODE
@@ -650,8 +579,6 @@ void test_code()
 
 		double (*ptr[])(double, double) = { X_Ws_D0, X_Ws_D1, X_Ws_D2,
 			X_Ws_D3, X_Ws_D4, X_Ws_D5, X_Ws_D6 };
-		__m256d(*ptr_avx[])(__m256d, __m256d) = { X_Ws_D0_avx, X_Ws_D1_avx, X_Ws_D2_avx,
-			X_Ws_D3_avx, X_Ws_D4_avx, X_Ws_D5_avx, X_Ws_D6_avx };
 #endif
 		double delta = 0.0001;
 		int Nj = (int)(1 / delta) - 10;
@@ -674,26 +601,6 @@ void test_code()
 					printf("cpp double order %d, time: 10x%10.1fus, value: %f\n", i, (double)d.count(), sum);
 				else
 					printf("cpp double order %d, time: %10.1fus, value: %f\n", i, (double)d.count(), sum);
-			}
-			{
-				auto t0 = std::chrono::high_resolution_clock::now();
-				double sum = 0;
-				double theta = 0;
-				for (int j = 0; j < Njj; j += 4) {
-					__m256d ev = _mm256_set1_pd(140);
-					__m256d tv = _mm256_set_pd(theta, theta + delta, theta + 2* delta, theta + 3* delta);
-					__m256d sumv = ptr_avx[i](ev, tv);
-					sum += hsum(sumv);
-					theta += delta;
-					theta += delta;
-					theta += delta;
-					theta += delta;
-				}
-				auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
-				if (i >= 3)
-					printf("avx double order %d, time: 10x%10.1fus, value: %f\n", i, (double)d.count(), sum);
-				else
-					printf("avx double order %d, time: %10.1fus, value: %f\n", i, (double)d.count(), sum);
 			}
 #endif
 			{

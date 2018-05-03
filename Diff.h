@@ -62,7 +62,6 @@ namespace Diff {
 		std::string ToString() const;
 
 		CCode ToCCode() const;
-		CCode ToAVXCode() const;
 
 		// Unique id of an expression
 		// use it as key of unordered_map/_set or map/set
