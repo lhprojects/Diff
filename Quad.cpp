@@ -280,13 +280,19 @@ namespace Diff {
 
 	double Erf65Points(std::function<double(double x)> const &f, double x0, double x1)
 	{
-		double h = 0.5*pow(65, -1. / 3);
+		double h = 0.7 * pow(65, -1. / 3);
 		int n = 32;
 		double I = 0;
 		for (int k = -n; k <= n; ++k) {
 			double kh = k*h;
-			double erfkh = std::erf(k*h);
-			double x = (erfkh + 1) / 2 * (x1 - x0) + x0;
+			double x;
+			if (k < 0) {
+				double erfckh = std::erfc(-k*h);
+				x = x0 + erfckh / 2 * (x1 - x0);
+			} else {
+				double erfckh = std::erfc(k*h);
+				x = x1 - erfckh / 2 * (x1 - x0);
+			}
 			I += f(x)*exp(-kh*kh);
 		}
 		I *= 2 / std::sqrt(Pi);

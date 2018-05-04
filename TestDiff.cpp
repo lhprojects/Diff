@@ -483,14 +483,24 @@ void test_int() {
 		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 129 * PI }).V() - 2);
 	}
 
-	{ // sqrt
+	{ // precision
 		Var x = 0;
 		TEST_SAME(Integrate(sqrt(x), { x, 0, 1 }).V(), 2 / 3.0);
 		TEST_SAME(Integrate(pow(x, 3. / 2), { x, 0, 1 }).V(), 2 / 5.0);
 		TEST_SAME(Integrate(pow(x, 5. / 2), { x, 0, 1 }).V(), 2 / 7.0);
-		printf("Integrate(x, 0, 1, sqrt(x))-(2/3.)'   : %.20f\n", Integrate(sqrt(x), { x, 0, 1 }).V() - (2 / 3.0));
-		printf("Integrate(x, 0, 1, pow(x,3/2))-(2/5.)': %.20f\n", Integrate(pow(x, 3. / 2), { x, 0, 1 }).V() - (2 / 5.0));
-		printf("Integrate(x, 0, 1, pow(x,5/2))-(2/7.)': %.20f\n", Integrate(pow(x, 5. / 2), { x, 0, 1 }).V() - (2 / 7.0));
+		printf("Method      Range         Integrand        Error\n");
+		printf("Integrate   [ 0, 1]       x^-1/2           %+.20f\n", Integrate(1 / sqrt(x), { x, 0, 1 }).V() - 2);
+		printf("Integrate   [ 0, 1]       log(x)           %+.20f\n", Integrate(log(x), { x, 0, 1 }).V() - -1.);
+		printf("Integrate   [ 0, 1]       x^0              %+.20f\n", Integrate(1, { x, 0, 1 }).V() - 1);
+		printf("Integrate   [ 0, 1]       x^1/2            %+.20f\n", Integrate(sqrt(x), { x, 0, 1 }).V() - 2. / 3);
+		printf("Integrate   [ 0, 1]       x^1              %+.20f\n", Integrate(x, { x, 0, 1 }).V() - 1. / 2);
+		printf("Integrate   [ 0, 1]       x^3/2            %+.20f\n", Integrate(pow(x, 3. / 2), { x, 0, 1 }).V() - (2 / 5.0));
+		printf("Integrate   [ 0, 1]       x^2              %+.20f\n", Integrate(x*x, { x, 0, 1 }).V() - 1. / 3);
+		printf("Integrate   [ 0, 1]       x^5/2            %+.20f\n", Integrate(pow(x, 5. / 2), { x, 0, 1 }).V() - (2 / 7.0));
+		printf("Integrate   [ 0, 1]       1/(1 + x^2)      %+.20f\n", Integrate(1 / (1 + x * x), { x, 0, 1 }).V() - Pi/4);
+		printf("Integrate   [-1, 1]       1/(1 + x^2)      %+.20f\n", Integrate(1 / (1 + x * x), { x, -1, 1 }).V() - Pi/2);
+		printf("Integrate   [ 0, 1]       1/(1 + 20x^2)    %+.20f\n", Integrate(1 / (1 + 20 * x * x), { x, 0, 1 }).V() - 0.302049929383142873916842364599);
+		printf("Integrate   [-1, 1]       1/(1 + 20x^2)    %+.20f\n", Integrate(1 / (1 + 20 * x * x), { x, -1, 1 }).V() - 2 * 0.302049929383142873916842364599);
 	}
 
 	{ // basic D
@@ -772,66 +782,82 @@ void test_num() {
 
 void test_quad() {
 
-	TEST_SAME(GaussLegendre16Points([](double x) { return x*x; }, 0, 1), 1. / 3);
-	TEST_SAME(GaussLegendre64Points([](double x) { return x*x; }, 0, 1), 1. / 3);
-	TEST_SAME(TanhSinh65Points([](double x) { return x*x; }, 0, 1), 1. / 3);
-	TEST_SAME(Tanh65Points([](double x) { return x*x; }, 0, 1), 1. / 3);
-	TEST_SAME(Erf65Points([](double x) { return x*x; }, 0, 1), 1. / 3);
-	printf("GL16     %.20f\n", GaussLegendre16Points([](double x) { return x*x; }, 0, 1));
-	printf("GL64     %.20f\n", GaussLegendre64Points([](double x) { return x*x; }, 0, 1));
-	printf("TanhSinh %.20f\n", TanhSinh65Points([](double x) { return x*x; }, 0, 1));
-	printf("Tanh     %.20f\n", Tanh65Points([](double x) { return x*x; }, 0, 1));
-	printf("Erf      %.20f\n", Erf65Points([](double x) { return x*x; }, 0, 1));
-
-	TEST_SAME(GaussLegendre16Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
-	TEST_SAME(GaussLegendre64Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
-	TEST_SAME(TanhSinh65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
-	TEST_SAME(Tanh65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
-	TEST_SAME(Erf65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
-	printf("GL16     %.20f\n", GaussLegendre16Points([](double x) { return sqrt(x); }, 0, 1));
-	printf("GL64     %.20f\n", GaussLegendre64Points([](double x) { return sqrt(x); }, 0, 1));
-	printf("TanhSinh %.20f\n", TanhSinh65Points([](double x) { return sqrt(x); }, 0, 1));
-	printf("Tanh     %.20f\n", Tanh65Points([](double x) { return sqrt(x); }, 0, 1));
-	printf("Erf      %.20f\n", Erf65Points([](double x) { return sqrt(x); }, 0, 1));
-
-	// these two will fail
-	//TEST_SAME(GaussianLegendre16Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2. / 3);
-	//TEST_SAME(GaussianLegendre64Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2. / 3);
-	TEST_SAME(TanhSinh65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
-	TEST_SAME(Tanh65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
-	TEST_SAME(Erf65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
-	printf("GL16     %.20f\n", GaussLegendre16Points([](double x) { return 1 / sqrt(x); }, 0, 1));
-	printf("GL64     %.20f\n", GaussLegendre64Points([](double x) { return 1 / sqrt(x); }, 0, 1));
-	printf("TanhSinh %.20f\n", TanhSinh65Points([](double x) { return 1 / sqrt(x); }, 0, 1));
-	printf("Tanh     %.20f\n", Tanh65Points([](double x) { return 1 / sqrt(x); }, 0, 1));
-	printf("Erf      %.20f\n", Erf65Points([](double x) { return 1 / sqrt(x); }, 0, 1));
-
-	printf("GL16     %+.6e\n", GaussLegendre16Points([](double x) { return 1 / (1 + 20 * x*x); }, -1, 1) - 2 * 0.302049929383142873916842364599);
-	printf("GL64     %+.6e\n", GaussLegendre64Points([](double x) { return 1 / (1 + 20 * x*x); }, -1, 1) - 2 * 0.302049929383142873916842364599);
-	printf("TanhSinh %+.6e\n", TanhSinh65Points([](double x) { return 1 / (1 + 20 * x*x); }, -1, 1) - 2 * 0.302049929383142873916842364599);
-	printf("Tanh     %+.6e\n", Tanh65Points([](double x) { return 1 / (1 + 20 * x*x); }, -1, 1) - 2 * 0.302049929383142873916842364599);
-	printf("Erf      %+.6e\n", Erf65Points([](double x) { return 1 / (1 + 20 * x*x); }, -1, 1) - 2 * 0.302049929383142873916842364599);
-
-	printf("GL16     %+.6e\n", GaussLegendre16Points([](double x) { return 1 / (1 + 0.1 * x*x); }, -1, 1) - 2 * 0.96853408234038924938038050);
-	printf("GL64     %+.6e\n", GaussLegendre64Points([](double x) { return 1 / (1 + 0.1 * x*x); }, -1, 1) - 2 * 0.96853408234038924938038050);
-	printf("TanhSinh %+.6e\n", TanhSinh65Points([](double x) { return 1 / (1 + 0.1 * x*x); }, -1, 1) - 2 * 0.96853408234038924938038050);
-	printf("Tanh     %+.6e\n", Tanh65Points([](double x) { return 1 / (1 + 0.1 * x*x); }, -1, 1) - 2 * 0.96853408234038924938038050);
-	printf("Erf      %+.6e\n", Erf65Points([](double x) { return 1 / (1 + 0.1 * x*x); }, -1, 1) - 2 * 0.96853408234038924938038050);
-
 	{
-		printf("tanh_sinh_65points_h %f\n", tanh_sinh_65points_h);
-		printf("Methods  Range    Integrand    Error\n");
-		printf("TanhSinh [ 0, 1 ] x*x         %+.6e\n", TanhSinh65Points([](double x) { return x*x; }, 0, 1) - 1/3.);
-		printf("TanhSinh [ 0, 1 ] sqrt(x)     %+.6e\n", TanhSinh65Points([](double x) { return sqrt(x); }, 0, 1) - 2/3.);
-		printf("TanhSinh [ 0, 1 ] log(x)      %+.6e\n", TanhSinh65Points([](double x) { return log(x); }, 0, 1) - -1);
-		printf("TanhSinh [ 0, 1 ] 1/sqrt(x)   %+.6e\n", TanhSinh65Points([](double x) { return 1 / sqrt(x); }, 0, 1) - 2.);
-		printf("TanhSinh [ 0, 1 ] pow(x,-2/3) %+.6e\n", TanhSinh65Points([](double x) { return pow(x, -2. / 3); }, 0, 1) - 3.);
-		printf("TanhSinh [ 0, 1 ] 1/(1+20xx)  %+.6e\n", TanhSinh65Points([](double x) { return 1 / (1 + 20 * x*x); }, 0, 1) - 0.302049929383142873916842364599);
-		printf("TanhSinh [-1, 1 ] 1/(1+20xx)  %+.6e\n", TanhSinh65Points([](double x) { return 1 / (1 + 20 * x*x); }, -1, 1) - 2*0.302049929383142873916842364599);
-		printf("TanhSinh [ 0, 1 ] 1/(1+xx)    %+.6e\n", TanhSinh65Points([](double x) { return 1 / (1 + x*x); }, 0, 1) - 0.78539816339744830961566);
-		printf("TanhSinh [-1, 1 ] 1/(1+xx)    %+.6e\n", TanhSinh65Points([](double x) { return 1 / (1 + x*x); }, -1, 1) - 2*0.78539816339744830961566);
+		TEST_SAME(GaussLegendre16Points([](double x) { return x * x; }, 0, 1), 1. / 3);
+		TEST_SAME(GaussLegendre64Points([](double x) { return x * x; }, 0, 1), 1. / 3);
+		TEST_SAME(TanhSinh65Points([](double x) { return x * x; }, 0, 1), 1. / 3);
+		TEST_SAME(Tanh65Points([](double x) { return x * x; }, 0, 1), 1. / 3);
+		TEST_SAME(Erf65Points([](double x) { return x * x; }, 0, 1), 1. / 3);
 	}
 
+	{
+		TEST_SAME(GaussLegendre16Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+		TEST_SAME(GaussLegendre64Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+		TEST_SAME(TanhSinh65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+		TEST_SAME(Tanh65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+		TEST_SAME(Erf65Points([](double x) { return sqrt(x); }, 0, 1), 2. / 3);
+	}
+
+	{
+		//TEST_SAME(GaussLegendre16Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2. / 3);
+		//TEST_SAME(GaussLegendre64Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2. / 3);
+		TEST_SAME(TanhSinh65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
+		TEST_SAME(Tanh65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
+		TEST_SAME(Erf65Points([](double x) { return 1 / sqrt(x); }, 0, 1), 2);
+	}
+
+
+	{
+		typedef double(*IntError)(std::function<double(double)> const &, double, double);
+
+		auto x_m1d2 = [](IntError ptr) {
+			return ptr([](double x) { return 1 / sqrt(x); }, 0, 1) - 2.;
+		};
+		auto log_x = [](IntError ptr) {
+			return ptr([](double x) { return log(x); }, 0, 1) - -1;
+		};
+		auto x_0 = [](IntError ptr) {
+			return ptr([](double x) { return 1; }, 0, 1) - 1;
+		};
+		auto x_1d2 = [](IntError ptr) {
+			return ptr([](double x) { return sqrt(x); }, 0, 1) - 2. / 3;
+		};
+		auto x_1 = [](IntError ptr) {
+			return ptr([](double x) { return x; }, 0, 1) - 2. / 4;
+		};
+		auto x_3d2 = [](IntError ptr) {
+			return ptr([](double x) { return pow(x, 1.5); }, 0, 1) - 2. / 5;
+		};
+		auto x_2 = [](IntError ptr) {
+			return ptr([](double x) { return x * x; }, 0, 1) - 2. / 6;
+		};
+		auto x_a = [](IntError ptr) {
+			return ptr([](double x) { return 1 / (1 + x * x); }, 0, 1) - Pi / 4;
+		};
+		auto x_b = [](IntError ptr) {
+			return ptr([](double x) { return 1 / (1 + x * x); }, -1, 1) - Pi / 2;
+		};
+		auto x_c = [](IntError ptr) {
+			return ptr([](double x) { return 1 / (1 + 20 * x * x); }, 0, 1) - 0.302049929383142873916842364599;
+		};
+		auto x_d = [](IntError ptr) {
+			return ptr([](double x) { return 1 / (1 + 20 * x * x); }, -1, 1) - 2.*0.302049929383142873916842364599;
+		};
+
+		printf("tanh_sinh_65points_h %f\n", tanh_sinh_65points_h);
+		printf("Range     Integrand   %8s  %8s  %8s  %8s  %8s\n", "gl16", "gl64", "ts65", "th65", "erf65");
+		printf("[ 0, 1]   x^-1/2      %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_m1d2(GaussLegendre16Points), x_m1d2(GaussLegendre64Points), x_m1d2(TanhSinh65Points), x_m1d2(Tanh65Points), x_m1d2(Erf65Points));
+		printf("[ 0, 1]   log(x)      %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", log_x(GaussLegendre16Points), log_x(GaussLegendre64Points), log_x(TanhSinh65Points), log_x(Tanh65Points), log_x(Erf65Points));
+		printf("[ 0, 1]   1           %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_0(GaussLegendre16Points), x_0(GaussLegendre64Points), x_0(TanhSinh65Points), x_0(Tanh65Points), x_0(Erf65Points));
+		printf("[ 0, 1]   x^1/2       %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_1d2(GaussLegendre16Points), x_1d2(GaussLegendre64Points), x_1d2(TanhSinh65Points), x_1d2(Tanh65Points), x_1d2(Erf65Points));
+		printf("[ 0, 1]   x           %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_1(GaussLegendre16Points), x_1(GaussLegendre64Points), x_1(TanhSinh65Points), x_1(Tanh65Points), x_1(Erf65Points));
+		printf("[ 0, 1]   x^3/2       %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_3d2(GaussLegendre16Points), x_3d2(GaussLegendre64Points), x_3d2(TanhSinh65Points), x_3d2(Tanh65Points), x_3d2(Erf65Points));
+		printf("[ 0, 1]   x*x         %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_2(GaussLegendre16Points), x_2(GaussLegendre64Points), x_2(TanhSinh65Points), x_2(Tanh65Points), x_2(Erf65Points));
+		printf("[ 0, 1]   1/(1+  xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_a(GaussLegendre16Points), x_a(GaussLegendre64Points), x_a(TanhSinh65Points), x_a(Tanh65Points), x_a(Erf65Points));
+		printf("[ 0, 1]   1/(1+  xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_b(GaussLegendre16Points), x_b(GaussLegendre64Points), x_b(TanhSinh65Points), x_b(Tanh65Points), x_b(Erf65Points));
+		printf("[ 0, 1]   1/(1+20xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_c(GaussLegendre16Points), x_c(GaussLegendre64Points), x_c(TanhSinh65Points), x_c(Tanh65Points), x_c(Erf65Points));
+		printf("[ 0, 1]   1/(1+20xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_d(GaussLegendre16Points), x_d(GaussLegendre64Points), x_d(TanhSinh65Points), x_d(Tanh65Points), x_d(Erf65Points));
+	}
 
 	{
 		TEST_SAME(TanhSinh65Points([](double x1, double x2) { 
@@ -863,11 +889,11 @@ int main()
 {
 	TEST_TRUE(DCount.size() == 0);
 	test_num();
-	test_quad();
 	test_V();
 	test_Diff();
 	fix_var();
 	testfunc();
+	test_quad();
 	test_int();
 	test_sum();
 	test_for();
