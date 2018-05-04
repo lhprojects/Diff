@@ -39,18 +39,15 @@ namespace Diff {
 
 	struct DExprImpl
 	{
-		virtual double DoV() const = 0;
-		virtual Num DoVE() const = 0;
-		virtual Expr DoD(Var const &s) const = 0;
-		virtual void ToString(std::string &s) const = 0;
-		// expr can't have a reference to any parent of s
-		// TODO: remove this in the futrue
-		virtual Expr DoReplaceVariable(Var const &s, Expr const &expr) const = 0;
+		virtual double EvalV() const = 0;
+		virtual Num EvalVE() const = 0;
+		virtual Expr EvalD(Var const &s) const = 0;
 
 		virtual std::string const & GetTypeName() const = 0;
 		virtual void AddExpressions(std::set<DExprImpl const*> &nodes) const = 0;
 		virtual void GetSubExpressions(SubExpressionVector &expr) const = 0;
-		virtual void GetParameters(SmallVector<double, 2> &pars) const { }
+		virtual void GetParameters(ParameterVector &pars) const { }
+		virtual void ToString(std::string &s) const = 0;
 
 		virtual ~DExprImpl();
 
@@ -66,32 +63,44 @@ namespace Diff {
 		bool IsVariable() const { return fType == ExprType::Variable; }
 
 		uint64_t const fUid;
+
+	private:
 		mutable int fRef;
+	public:
 		void IncRef() const { ++fRef; }
 		void DecRef() const {
 			--fRef;
 			if (fRef == 0) delete this;
 		}
+	private:
+		mutable std::map<uint64_t, RebindableExpr> fDMem;
+	public:
+		Expr DMem(Var const &s) const;
 
-		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
-
+	private:
 		mutable double fVMem;
 		mutable Num fVEMem;
+	public:
 		mutable bool fVMemValid;
-		mutable std::vector<DExprImpl const*> fNodesMem;
-		mutable std::map<uint64_t, RebindableExpr> fDoDMem;
-		mutable std::map<std::pair<uint64_t, uint64_t>, std::pair<int, RebindableExpr> > fReplaceMem;
-		Expr DoDMem(Var const &s) const;
-		double VMem() const;
+
+		double VMem() const
+		{
+			if (!fVMemValid) {
+				fVMem = EvalV();
+				fVMemValid = true;
+			}
+			return fVMem;
+		}
 
 		Num VEMem() const {
 			if (!fVMemValid) {
-				fVEMem = DoVE();
+				fVEMem = EvalVE();
 				fVMemValid = true;
 			}
 			return fVEMem;
 		}
 
+		mutable std::vector<DExprImpl const*> fNodesMem;
 		std::vector<DExprImpl const*> const & GetNodesMem() const {
 			if (fNodesMem.size() == 0) {
 				std::set<DExprImpl const *> nodes;
@@ -110,6 +119,11 @@ namespace Diff {
 	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false), fUid(guid++), fVEMem(0, 0, 0)
 	{
 		fRef = 0;
+		auto it = DCount.find(this);
+		if (it != DCount.end()) {
+			printf("FATAL ERROR: you are intializing object <%p> has bee intialized! you can't continue!", (void*)*it);
+			exit(1);
+		}
 		DCount.insert(this);
 	}
 
@@ -117,46 +131,13 @@ namespace Diff {
 	{
 	}
 
-	Expr DExprImpl::DoDMem(Var const & s) const
+	Expr DExprImpl::DMem(Var const & s) const
 	{
-#if 1
-		auto &p = fDoDMem[s.Uid()];
+		auto &p = fDMem[s.Uid()];
 		if (p.Empty()) {
-			p = DoD(s);
+			p = EvalD(s);
 		}
 		return p;
-#else
-		return DoD(s);
-#endif
-	}
-
-	double DExprImpl::VMem() const
-	{
-		if (!fVMemValid) {
-			fVMem = DoV();
-			fVMemValid = true;
-		}
-		return fVMem;
-	}
-
-	Expr DExprImpl::ReplaceVariable(Var const & s, Expr const &expr_) const
-	{
-		if (IsConst() || IsVariable()) {
-			return DoReplaceVariable(s, expr_);
-		}
-		auto &p = fReplaceMem[std::make_pair(s.Uid(), expr_.Uid())];
-		if (p.first == 0) { // ok first time to call this
-			Expr expr = DoReplaceVariable(s, expr_);
-			if (expr.fImpl == this) {
-				// just know the result is myself, but don't save a smart pointer
-				p.first = 2;
-			} else {
-				p.first = 1;
-				p.second = expr;
-			}
-		}
-		if (p.first == 2) return *this;
-		else return p.second;
 	}
 
 
@@ -164,14 +145,12 @@ namespace Diff {
 	{
 		auto it = DCount.find(this);
 		if (it == DCount.end()) {
-			printf("FATAL ERROR: you are free memory <%p>, but should have been freed! You can't continue!", (void*)*it);
+			printf("FATAL ERROR: you are freeing memory <%p>, but should have been freed! You can't continue!", (void*)*it);
 			exit(1);
 		} else {
 			DCount.erase(it);
 		}
 		
-		//fReplaceMem.clear();
-
 	}
 
 
@@ -225,11 +204,11 @@ namespace Diff {
 
 
 	Expr D(Expr const &expr, Expr const &var) {
-		return expr.fImpl->DoDMem(CastToVar(var));
+		return expr.fImpl->DMem(CastToVar(var));
 	}
 
 	inline Expr D(Expr const &expr, Var const &var) {
-		return expr.fImpl->DoDMem(var);
+		return expr.fImpl->DMem(var);
 	}
 
 	Expr D(Expr const &expr, Expr const &var, int n)
@@ -252,17 +231,6 @@ namespace Diff {
 		return fImpl->GetNodesMem().size();
 	}
 
-
-	Expr Expr::ReplaceVariable(Var const &s, Expr const &expr) const
-	{
-		return fImpl->ReplaceVariable(s, expr);
-	}
-
-	Expr Expr::FixVariable(Var const & s) const
-	{
-		return fImpl->ReplaceVariable(s, Const(s.V()));
-	}
-
 	uint64_t Expr::Uid() const {
 		return fImpl->fUid;
 	}
@@ -275,7 +243,7 @@ namespace Diff {
 
 	Expr Expr::D(Expr const & var) const
 	{
-		return fImpl->DoDMem(CastToVar(var));
+		return fImpl->DMem(CastToVar(var));
 	}
 
 	/****************************	DExpr	end *********************************************/
@@ -316,11 +284,11 @@ namespace Diff {
 
 		DConstant(double v) : DExprImpl(ExprType::Const), fV(v), fVE(v, 0, 0) { }
 
-		double DoV() const override {
+		double EvalV() const override {
 			return fV;
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return fVE;
 		}
 
@@ -329,11 +297,11 @@ namespace Diff {
 			nodes.insert(this);
 		}
 
-		void GetParameters(SmallVector<double, 2> &v) const override {
+		void GetParameters(ParameterVector &v) const override {
 			v.push_back(fV);
 		}
 
-		void GetSubExpressions(SmallVector<Expr, 2> &) const override {
+		void GetSubExpressions(SubExpressionVector &) const override {
 		}
 
 		static std::string const sTypeName;
@@ -341,12 +309,8 @@ namespace Diff {
 			return sTypeName;
 		}
 
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			return Zero();
-		}
-
-		Expr DoReplaceVariable(Var const &, Expr const &) const override {
-			return *this;
 		}
 
 		void ToString(std::string & sb) const override
@@ -417,10 +381,16 @@ namespace Diff {
 		}
 
 
-		double DoV() const override { return fV; }
-		Num DoVE() const override { return fVE; }
+		double EvalV() const override { return fV; }
+		Num EvalVE() const override { return fVE; }
 
-		Expr DoD(Var const &s) const override;
+		Expr EvalD(Var const &s) const override {
+			if (s.fImpl == this) {
+				return One();
+			} else {
+				return Zero();
+			}
+		}
 
 		void GetSubExpressions(SubExpressionVector &) const override {
 		}
@@ -433,13 +403,6 @@ namespace Diff {
 			nodes.insert(this);
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			if (this == s.fImpl) {
-				return expr;
-			}
-			return *this;
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			if (fName.empty()) {
@@ -449,16 +412,6 @@ namespace Diff {
 			}
 		}
 	};
-
-
-	Expr DVariableImpl::DoD(Var const &s) const
-	{
-		if (s.fImpl == this) {
-			return One();
-		} else {
-			return Zero();
-		}
-	}
 
 	/********************	DVariableImpl	end		*********************************/
 
@@ -555,27 +508,19 @@ namespace Diff {
 	struct DLog : DUnitaryFunction {
 
 		using DUnitaryFunction::DUnitaryFunction;
-		double DoV() const override {
+		double EvalV() const override {
 			return std::log(f1.fImpl->VMem());
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return log(f1.fImpl->VEMem());
-		}
-
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return log(f);
 		}
 
 		std::string const & GetTypeName() const {
 			return DlogName;
 		}
 
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			return D(f1, s) / f1;
 		}
 
@@ -606,16 +551,7 @@ namespace Diff {
 			v.push_back(fN);
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return pow(f, fN);
-		}
-
-
-		double DoV() const override {
+		double EvalV() const override {
 			if (fN == 0) return 1;
 			else if (fN == 1) return f1.fImpl->VMem();
 			else if (fN == 2) return f1.fImpl->VMem()*f1.fImpl->VMem();
@@ -624,12 +560,12 @@ namespace Diff {
 			return std::pow(f1.fImpl->VMem(), fN);
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return pow(f1.fImpl->VEMem(), fN);
 		}
 
 
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			if (fN == 0) return Zero();
 			else if (fN == 1) return D(f1, s);
 			else if (fN == 2) return Two()*f1*D(f1, s);
@@ -653,11 +589,11 @@ namespace Diff {
 	{
 		using DUnitaryFunction::DUnitaryFunction;
 
-		double DoV() const override {
+		double EvalV() const override {
 			return std::exp(f1.fImpl->VMem());
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return exp(f1.fImpl->VEMem());
 		}
 
@@ -665,15 +601,7 @@ namespace Diff {
 			return DexpName;
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return exp(f);
-		}
-
-		Expr DoD(Var const &s) const override
+		Expr EvalD(Var const &s) const override
 		{
 			// make a copy
 			// don't refer this self
@@ -695,11 +623,11 @@ namespace Diff {
 		using DUnitaryFunction::DUnitaryFunction;
 
 
-		double DoV() const override {
+		double EvalV() const override {
 			return std::sin(f1.fImpl->VMem());
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return sin(f1.fImpl->VEMem());
 		}
 
@@ -707,15 +635,7 @@ namespace Diff {
 			return DsinName;
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return sin(f);
-		}
-
-		Expr DoD(Var const &s) const override
+		Expr EvalD(Var const &s) const override
 		{
 			return D(f1, s)*cos(f1);
 		}
@@ -735,11 +655,11 @@ namespace Diff {
 
 		using DUnitaryFunction::DUnitaryFunction;
 
-		double DoV() const override {
+		double EvalV() const override {
 			return std::cos(f1.fImpl->VMem());
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return cos(f1.fImpl->VEMem());
 		}
 
@@ -747,15 +667,7 @@ namespace Diff {
 			return DcosName;
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return cos(f);
-		}
-
-		Expr DoD(Var const &s) const override
+		Expr EvalD(Var const &s) const override
 		{
 			return -D(f1, s)*sin(f1);
 		}
@@ -775,7 +687,7 @@ namespace Diff {
 
 		using DUnitaryFunction::DUnitaryFunction;
 		
-		double DoV() const override {
+		double EvalV() const override {
 			return std::sinh(f1.fImpl->VMem());
 		}
 
@@ -783,19 +695,11 @@ namespace Diff {
 			return DsinhName;
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return sin(f);
-		}
-
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return sinh(f1.fImpl->VEMem());
 		}
 
-		Expr DoD(Var const &s) const override
+		Expr EvalD(Var const &s) const override
 		{
 			return D(f1, s)*cosh(f1);
 		}
@@ -814,11 +718,11 @@ namespace Diff {
 	{
 		using DUnitaryFunction::DUnitaryFunction;
 
-		double DoV() const override {
+		double EvalV() const override {
 			return std::cosh(f1.fImpl->VMem());
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return cosh(f1.fImpl->VEMem());
 		}
 
@@ -826,15 +730,7 @@ namespace Diff {
 			return DcoshName;
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return cosh(f);
-		}
-
-		Expr DoD(Var const &s) const override
+		Expr EvalD(Var const &s) const override
 		{
 			return D(f1, s)*sinh(f1);
 		}
@@ -885,25 +781,16 @@ namespace Diff {
 			return DaddhName;
 		}
 
-		double DoV() const override {
+		double EvalV() const override {
 			return f1.fImpl->VMem() + f2.fImpl->VMem();
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return f1.fImpl->VEMem() + f2.fImpl->VEMem();
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f1_ = f1.ReplaceVariable(s, expr);
-			auto f2_ = f2.ReplaceVariable(s, expr);
-			if (f1_.fImpl == f1.fImpl && f2_.fImpl == f2.fImpl) {
-				return *this;
-			}
-			return f1_ + f2_;
-		}
 
-
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			return D(f1, s) + D(f2, s);
 		}
 
@@ -925,25 +812,16 @@ namespace Diff {
 			return DsubhName;
 		}
 
-		double DoV() const override {
+		double EvalV() const override {
 			return f1.fImpl->VMem() - f2.fImpl->VMem();
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return f1.fImpl->VEMem() - f2.fImpl->VEMem();
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f1_ = f1.ReplaceVariable(s, expr);
-			auto f2_ = f2.ReplaceVariable(s, expr);
-			if (f1_.fImpl == f1.fImpl && f2_.fImpl == f2.fImpl) {
-				return *this;
-			}
-			return f1_ - f2_;
-		}
 
-
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			return D(f1, s) - D(f2, s);
 		}
 
@@ -973,28 +851,19 @@ namespace Diff {
 			return DmulhName;
 		}
 
-		double DoV() const override {
+		double EvalV() const override {
 			return f1.fImpl->VMem() * f2.fImpl->VMem();
 		}
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return f1.fImpl->VEMem() * f2.fImpl->VEMem();
 		}
 
 
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			if (f1.fImpl->IsConst()) return f1* D(f2, s);
 			else if (f2.fImpl->IsConst()) return f2 * D(f1, s);
 			else return D(f1, s) * f2 + f1 * D(f2, s);
-		}
-
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f1_ = f1.ReplaceVariable(s, expr);
-			auto f2_ = f2.ReplaceVariable(s, expr);
-			if (f1_.fImpl == f1.fImpl && f2_.fImpl == f2.fImpl) {
-				return *this;
-			}
-			return f1_ * f2_;
 		}
 
 		void ToString(std::string & sb) const override
@@ -1023,27 +892,18 @@ namespace Diff {
 			return DdivhName;
 		}
 
-		double DoV() const override {
+		double EvalV() const override {
 			return f1.fImpl->VMem() / f2.fImpl->VMem();
 		}
 
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			return f1.fImpl->VEMem() / f2.fImpl->VEMem();
 		}
 
 
-		Expr DoD(Var const &s) const override {
+		Expr EvalD(Var const &s) const override {
 			return D(f1, s) / f2 - f1 * D(f2, s) * pow(f2, -2);
-		}
-
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f1_ = f1.ReplaceVariable(s, expr);
-			auto f2_ = f2.ReplaceVariable(s, expr);
-			if (f1_.fImpl == f1.fImpl && f2_.fImpl == f2.fImpl) {
-				return *this;
-			}
-			return f1_ / f2_;
 		}
 
 		void ToString(std::string & sb) const override
@@ -1096,7 +956,7 @@ namespace Diff {
 			}
 		}
 
-		double DoV() const
+		double EvalV() const override
 		{
 			return GaussLegendre64Points([&](double x) {
 				fX.SetV(x);
@@ -1105,7 +965,7 @@ namespace Diff {
 		}
 
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			double v = GaussLegendre64Points([&](double x) {
 				fX.SetV(x);
 				return fY.V();
@@ -1113,26 +973,14 @@ namespace Diff {
 			return Num(v, 0, 0);
 		}
 
-
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto x0_ = fX0.ReplaceVariable(s, expr);
-			auto x1_ = fX1.ReplaceVariable(s, expr);
-			auto y_ = fY.ReplaceVariable(s, expr);
-			if (x0_.fImpl == fX0.fImpl && x1_.fImpl == fX1.fImpl && y_.fImpl == fY.fImpl) {
-				return *this;
-			}
-			return Integrate(y_, { fX, x0_, x1_ });
-		}
-
-
-		Expr DoD(Var const &s) const
+		Expr EvalD(Var const &s) const override
 		{
 			RebindableExpr d0;
 			Expr dx0 = D(fX0, s);
 			if (dx0.fImpl->IsConst() && dx0.fImpl->VMem() == 0) {
 				d0 = Const(0);
 			} else {
-				d0 = -dx0 * fY.ReplaceVariable(fX, fX0);
+				d0 = -dx0 * ReplaceVariable(fY, fX, fX0);
 			}
 
 			RebindableExpr d1;
@@ -1140,7 +988,7 @@ namespace Diff {
 			if (dx1.fImpl->IsConst() && dx1.fImpl->VMem() == 0) {
 				d1 = Const(0);
 			} else {
-				d1 = dx1 * fY.ReplaceVariable(fX, fX1);
+				d1 = dx1 * ReplaceVariable(fY, fX, fX1);
 			}
 
 			Expr d2 = Integrate(D(fY, s), { fX, fX0, fX1 });
@@ -1196,7 +1044,7 @@ namespace Diff {
 			pars.push_back(fInc);
 		}
 
-		double DoV() const
+		double EvalV() const override
 		{
 			double s = 0;
 			for (double i = fFirst; i <= fLast; i += fInc) {
@@ -1207,7 +1055,7 @@ namespace Diff {
 		}
 
 
-		Num DoVE() const override {
+		Num EvalVE() const override {
 			Num s(0, 0, 0);
 			for (double i = fFirst; i <= fLast; i += fInc) {
 				fI.SetV(i);
@@ -1216,29 +1064,11 @@ namespace Diff {
 			return s;
 		}
 
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto x0_ = fExpr.ReplaceVariable(s, expr);
-			if (x0_.fImpl == fExpr.fImpl) {
-				return *this;
-			}
-			return Sum(x0_, fI, fFirst, fLast, fInc);
-		}
-
-
-		Expr DoD(Var const &s) const
+		Expr EvalD(Var const &s) const
 		{
 			return Sum(D(fExpr, s), fI, fFirst, fLast, fInc);
 		}
 
-		void DoToCCode(std::string &sb) const
-		{
-			throw std::logic_error("not implemented");
-		}
-
-		void DoToAVXCode(std::string &sb) const
-		{
-			throw std::logic_error("not implemented");
-		}
 
 		void ToString(std::string &sb) const override
 		{
@@ -1275,14 +1105,14 @@ namespace Diff {
 			return gl64_name;
 		}
 
-		double DoV() const override {
+		double EvalV() const override {
 			int idx = (int)fIndex.fImpl->VMem();
 			if (idx >= 32) idx = idx - 32;
 			return gl_w_64points[idx];
 		}
 
-		Num DoVE() const { throw std::logic_error("not implemented"); }
-		Expr DoD(Var const &s) const { 
+		Num EvalVE() const override { throw std::logic_error("not implemented"); }
+		Expr EvalD(Var const &s) const override {
 			if (s.Uid() == fIndex.Uid()) {
 				throw std::logic_error("not implemented");
 			}
@@ -1293,14 +1123,6 @@ namespace Diff {
 			sb.append("gl_w[i]");
 		}
 		
-		// expr can't have a reference to any parent of s
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const {
-			if (fIndex.Uid() == expr.Uid()) {
-				return *this;
-			}
-			return *new GL64Weightmpl(CastToVar(expr));
-		}
-
 	};
 
 	std::string gl64_name_x = "GL64PointsX";
@@ -1324,7 +1146,7 @@ namespace Diff {
 			return gl64_name_x;
 		}
 
-		double DoV() const override {
+		double EvalV() const override {
 			int idx = (int)fIndex.fImpl->VMem();
 			if (idx >= 32) {
 				idx = idx - 32;
@@ -1334,8 +1156,8 @@ namespace Diff {
 			}
 		}
 
-		Num DoVE() const override { throw std::logic_error("not implemented"); }
-		Expr DoD(Var const &s) const {
+		Num EvalVE() const override { throw std::logic_error("not implemented"); }
+		Expr EvalD(Var const &s) const override {
 			if (s.Uid() == fIndex.Uid()) {
 				throw std::logic_error("not implemented");
 			}
@@ -1344,34 +1166,21 @@ namespace Diff {
 		void ToString(std::string &sb) const override {
 			sb.append("gl_xi[i]");
 		}
-		virtual void DoToCCode(std::string &sb) const {
-			throw std::logic_error("not implemented");
-		}
-		virtual void DoToAVXCode(std::string &sb) const {
-			throw std::logic_error("not implemented");
-		}
-		// expr can't have a reference to any parent of s
-		virtual Expr DoReplaceVariable(Var const &s, Expr const &expr) const {
-			if (fIndex.Uid() == expr.Uid()) {
-				return *this;
-			}
-			return *new GL64Weightmpl(CastToVar(expr));
-		}
 
 	};
 
 	Expr operator*(ExprOrDouble const &s1, ExprOrDouble const &s2)
 	{
-		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 1) {
+		if (s1.fImpl->IsConst() && s1.fImpl->EvalV() == 1) {
 			return s2;
-		} else if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 0) {
+		} else if (s1.fImpl->IsConst() && s1.fImpl->EvalV() == 0) {
 			return Zero();
-		} else if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 1) {
+		} else if (s2.fImpl->IsConst() && s2.fImpl->EvalV() == 1) {
 			return s1;
-		} else if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 0) {
+		} else if (s2.fImpl->IsConst() && s2.fImpl->EvalV() == 0) {
 			return Zero();
 		} else if (s1.fImpl->IsConst() && s2.fImpl->IsConst()) {
-			return Const(s1.fImpl->DoV()*s2.fImpl->DoV());
+			return Const(s1.fImpl->EvalV()*s2.fImpl->EvalV());
 		} else if (s1.fImpl == s2.fImpl) {
 			return pow(s1, 2);
 		}
@@ -1380,12 +1189,12 @@ namespace Diff {
 
 	Expr operator+(ExprOrDouble const &s1, ExprOrDouble const &s2)
 	{
-		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 0) {
+		if (s1.fImpl->IsConst() && s1.fImpl->EvalV() == 0) {
 			return s2;
-		} else if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 0) {
+		} else if (s2.fImpl->IsConst() && s2.fImpl->EvalV() == 0) {
 			return s1;
 		} else if (s1.fImpl->IsConst() && s2.fImpl->IsConst()) {
-			return Const(s1.fImpl->DoV() + s2.fImpl->DoV());
+			return Const(s1.fImpl->EvalV() + s2.fImpl->EvalV());
 		} else if (s1.fImpl == s2.fImpl) {
 			return Two()*s1;
 		}
@@ -1394,10 +1203,10 @@ namespace Diff {
 
 	Expr operator-(ExprOrDouble const &s1, ExprOrDouble const &s2)
 	{
-		if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 0) {
+		if (s2.fImpl->IsConst() && s2.fImpl->EvalV() == 0) {
 			return s1;
 		} else if (s1.fImpl->IsConst() && s2.fImpl->IsConst()) {
-			return Const(s1.fImpl->DoV() - s2.fImpl->DoV());
+			return Const(s1.fImpl->EvalV() - s2.fImpl->EvalV());
 		} else if (s1.fImpl == s2.fImpl) {
 			return Zero();
 		}
@@ -1406,12 +1215,12 @@ namespace Diff {
 
 	Expr operator/(ExprOrDouble const &s1, ExprOrDouble const &s2)
 	{
-		if (s1.fImpl->IsConst() && s1.fImpl->DoV() == 0) {
+		if (s1.fImpl->IsConst() && s1.fImpl->EvalV() == 0) {
 			return Zero();
-		} else if (s2.fImpl->IsConst() && s2.fImpl->DoV() == 1) {
+		} else if (s2.fImpl->IsConst() && s2.fImpl->EvalV() == 1) {
 			return s1;
 		} else if (s1.fImpl->IsConst() && s2.fImpl->IsConst()) {
-			return Const(s1.fImpl->DoV() / s2.fImpl->DoV());
+			return Const(s1.fImpl->EvalV() / s2.fImpl->EvalV());
 		} else if (DPowN const *pw = dynamic_cast<DPowN const*>(s2.fImpl)) {
 			return s1*pow(pw->f1, -pw->fN);
 		} else if (s1.fImpl == s2.fImpl) {
@@ -1429,7 +1238,7 @@ namespace Diff {
 	Expr log(Expr const &s)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::log(s.fImpl->DoV()));
+			return Const(std::log(s.fImpl->EvalV()));
 		}
 		return *new DLog(s);
 	}
@@ -1437,7 +1246,7 @@ namespace Diff {
 	Expr exp(Expr const &s)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::exp(s.fImpl->DoV()));
+			return Const(std::exp(s.fImpl->EvalV()));
 		}
 		return *new DExp(s);
 	}
@@ -1445,7 +1254,7 @@ namespace Diff {
 	Expr sin(Expr const &s)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::sin(s.fImpl->DoV()));
+			return Const(std::sin(s.fImpl->EvalV()));
 		}
 		return *new DSin(s);
 	}
@@ -1453,7 +1262,7 @@ namespace Diff {
 	Expr cos(Expr const &s)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::cos(s.fImpl->DoV()));
+			return Const(std::cos(s.fImpl->EvalV()));
 		}
 		return *new DCos(s);
 	}
@@ -1461,7 +1270,7 @@ namespace Diff {
 	Expr sinh(Expr const &s)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::sinh(s.fImpl->DoV()));
+			return Const(std::sinh(s.fImpl->EvalV()));
 		}
 		return *new DSinh(s);
 	}
@@ -1469,7 +1278,7 @@ namespace Diff {
 	Expr cosh(Expr const &s)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::cosh(s.fImpl->DoV()));
+			return Const(std::cosh(s.fImpl->EvalV()));
 		}
 		return *new DCosh(s);
 	}
@@ -1505,7 +1314,7 @@ namespace Diff {
 		Expr xi = *new GL64Ximpl(i);
 		Expr x = 0.5*(1 - xi)*from + 0.5*(1 + xi)*to;
 		Expr w = *new GL64Weightmpl(i);
-		Expr sd = y.ReplaceVariable(original_x, x) * w;
+		Expr sd = ReplaceVariable(y, original_x, x) * w;
 		Expr h = 0.5 * (to - from) * Sum(sd, i, 0, 63, 1);
 		return h;
 	}
@@ -1519,7 +1328,7 @@ namespace Diff {
 	Expr pow(Expr const &s, double n)
 	{
 		if (s.fImpl->IsConst()) {
-			return Const(std::pow(s.fImpl->DoV(), n));
+			return Const(std::pow(s.fImpl->EvalV(), n));
 		} else if (n == 1) {
 			return s;
 		} else if (DPowN const * pw = dynamic_cast<DPowN const*>(s.fImpl)) {

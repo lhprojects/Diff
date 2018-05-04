@@ -60,10 +60,6 @@ namespace Diff {
 		void GetSubExpressions(SubExpressionVector &expr) const;
 		void GetParameters(ParameterVector &expr) const;
 
-		// make a variable to be constant
-		// new expresion returned
-		Expr FixVariable(Var const &s) const;
-
 		// return string for debug
 		// all sub expression will expanded
 		// maybe it cause out of memory
@@ -74,9 +70,6 @@ namespace Diff {
 		uint64_t Uid() const;
 		//private:
 
-		// replace a variable with a expresion
-		// any sub expressions of `expr` can't have a reference to the any sub expression of this
-		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
 		Expr(DExprImpl const &impl);
 		DExprImpl const *fImpl;
 	};
@@ -198,7 +191,6 @@ namespace Diff {
 		SumSecondArg(ExprOrDouble const &a, double b, double c, double d = 1) : fExpr(a), fFist(b), fSecond(c), fInc(d) { }
 	};
 
-
 	Expr Sum(Expr const &expr, Expr const &var, double first, double last, double inc = 1);
 	Expr Sum(Expr const &expr, SumSecondArg const &arg);
 
@@ -219,5 +211,10 @@ namespace Diff {
 		std::map<Expr, std::string, ExprLess> Names;
 	};
 	CCode ToCCode(Expr const &expr);
+
+	// replace a variable with a expresion
+	// any sub expressions of `expr` can't have a reference to the any sub expression of this
+	Expr ReplaceVariable(Expr const &in_what, Expr const &to_be_replaced, ExprOrDouble const &replaced_by);
+	Expr ReplaceVariable(Expr const &in_what, std::pair<Expr, ExprOrDouble> const &);
 
 }

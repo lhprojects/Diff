@@ -202,7 +202,7 @@ void fix_var() {
 		}
 		TEST_TRUE(energy_vars.size() == 1);
 
-		Expr e = energy.FixVariable(p);
+		Expr e = ReplaceVariable(energy, {p, 1});
 		auto e_vars = e.GetVariablesList();
 		for (auto &v : e_vars) {
 			printf("var in energy %s\n", v.GetName().c_str());
@@ -308,17 +308,17 @@ struct Formula {
 		for (; (int)X_Is.size() <= n; ) {
 			X_Is.push_back(D(X_Is.at(X_Is.size() - 1), costheta));
 			costheta.SetV(0);
-			X_Is0.push_back(X_Is.back().FixVariable(costheta));
+			X_Is0.push_back(ReplaceVariable(X_Is.back(), {costheta, 0}));
 		}
 		for (; (int)X_Ws.size() <= n; ) {
 			X_Ws.push_back(D(X_Ws.at(X_Ws.size() - 1), costheta));
 			costheta.SetV(0);
-			X_Ws0.push_back(X_Ws.back().FixVariable(costheta));
+			X_Ws0.push_back(ReplaceVariable(X_Ws.back(), { costheta, 0 }));
 		}
 		for (; (int)X_Ss.size() <= n; ) {
 			X_Ss.push_back(D(X_Ss.at(X_Ss.size() - 1), costheta));
 			costheta.SetV(0);
-			X_Ss0.push_back(X_Ss.back().FixVariable(costheta));
+			X_Ss0.push_back(ReplaceVariable(X_Ss.back(), { costheta, 0 }));
 		}
 	}
 
@@ -355,7 +355,7 @@ struct Formula {
 			Expr G_I = f1*f2*f3;
 			Expr X_I = XsectionGlobalFactor*p*G_I;
 			X_Is.push_back(X_I);
-			X_Is0.push_back(X_Is.back().FixVariable(costheta));
+			X_Is0.push_back(ReplaceVariable(X_Is.back(), { costheta, 0 }));
 		}
 		{
 			Const const f1 = (POW2(C.v_e) + POW2(C.a_e)) / 96;
@@ -363,7 +363,7 @@ struct Formula {
 			Expr const Gs = f1*f2;
 			Expr X_S = XsectionGlobalFactor*p * 3 * Gs;
 			X_Ss.push_back(X_S);
-			X_Ss0.push_back(X_Ss.back().FixVariable(costheta));
+			X_Ss0.push_back(ReplaceVariable(X_Ss.back(), { costheta, 0 }));
 
 		}
 		{
@@ -376,7 +376,7 @@ struct Formula {
 
 			Expr X_W = XsectionGlobalFactor*p * G_W;
 			X_Ws.push_back(X_W);
-			X_Ws0.push_back(X_Ws.back().FixVariable(costheta));
+			X_Ws0.push_back(ReplaceVariable(X_Ws.back(), { costheta, 0 }));
 
 		}
 
@@ -410,7 +410,7 @@ void test_for() {
 		auto c = cf.Get();
 		Formula f(c, 1);
 		int n = 10;
-		f.Init(10);
+		f.Init(6);
 		f.eH.SetV(140);
 
 		f.costheta.SetV(0.01);
@@ -424,20 +424,21 @@ void test_for() {
 		TEST_SAME(f.X_Ws.at(2).V(), ypp);
 		TEST_SAME(f.X_Ws.at(2).VE().V(), f.X_Ws.at(2).V());
 
-		for (int i = 0; i < 10; ++i) {
+		TEST_SAME(f.X_Ws0.at(2).V(), f.X_Ws.at(2).V());
+		TEST_SAME(f.X_Ws0.at(3).V(), f.X_Ws.at(3).V());
+		TEST_SAME(f.X_Ws0.at(4).V(), f.X_Ws.at(4).V());
+
+		for (int i = 0; i < 7; ++i) {
 			printf("d%d %+e +- %e +- %e\n", i, 
 				f.X_Ws.at(i).VE().V(), f.X_Ws.at(i).VE().E1(), f.X_Ws.at(i).VE().SqrtE2());
 		}
 
-		printf("nodes %d\n", (int)f.X_Ws.at(10).Nodes());
-		printf("nodes %d\n", (int)f.X_Ss.at(10).Nodes());
-		printf("nodes %d\n", (int)f.X_Is.at(10).Nodes());
+		printf("nodes %d\n", (int)f.X_Ws.at(6).Nodes());
+		printf("nodes %d\n", (int)f.X_Ss.at(6).Nodes());
+		printf("nodes %d\n", (int)f.X_Is.at(6).Nodes());
 		printf("nodes %d\n", (int)f.X_Ws.at(0).Nodes());
 		printf("nodes %d\n", (int)f.X_Ss.at(0).Nodes());
 		printf("nodes %d\n", (int)f.X_Is.at(0).Nodes());
-		printf("nodes %d\n", (int)f.X_Ws.at(0).FixVariable(f.eH).Nodes());
-		printf("nodes %d\n", (int)f.X_Ss.at(0).FixVariable(f.eH).Nodes());
-		printf("nodes %d\n", (int)f.X_Is.at(0).FixVariable(f.eH).Nodes());
 
 	}
 
