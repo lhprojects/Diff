@@ -538,7 +538,7 @@ void test_code()
 		Const mass = 1;
 		Var p("p", 1);
 		Expr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
-		printf("%s\n", energy.ToCCode().Body.c_str());
+		printf("%s\n", ToCCode(energy).Body.c_str());
 	}
 
 	{
@@ -556,7 +556,7 @@ void test_code()
 			sprintf(b, "X_Ws_D%d.h", i);
 			FILE *file = fopen(b, "w");
 
-			CCode ccode = f.X_Ws.at(i).ToCCode();
+			CCode ccode = ToCCode(f.X_Ws.at(i));
 			fprintf(file, "double X_Ws_D%d(double %s, double %s) {\n",
 				i,
 				ccode.Names[f.eH].c_str(),

@@ -2,6 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "Num.h"
 #include "Constants.h"
+#include "SamllVector.h"
 
 #include <string>
 #include <set>
@@ -20,6 +21,8 @@ namespace Diff {
 	struct DVariableImpl;
 	struct Var;
 	struct CCode;
+	typedef SmallVector<Expr, 2> SubExpressionVector;
+	typedef SmallVector<double, 2> ParameterVector;
 
 
 	// a handler of Expression object
@@ -52,6 +55,11 @@ namespace Diff {
 		// only use it for debug
 		std::vector<Var> GetVariablesList() const;
 
+
+		std::string const &GetTypeName() const;
+		void GetSubExpressions(SubExpressionVector &expr) const;
+		void GetParameters(ParameterVector &expr) const;
+
 		// make a variable to be constant
 		// new expresion returned
 		Expr FixVariable(Var const &s) const;
@@ -60,8 +68,6 @@ namespace Diff {
 		// all sub expression will expanded
 		// maybe it cause out of memory
 		std::string ToString() const;
-
-		CCode ToCCode() const;
 
 		// Unique id of an expression
 		// use it as key of unordered_map/_set or map/set
@@ -75,16 +81,6 @@ namespace Diff {
 		DExprImpl const *fImpl;
 	};
 
-	struct CCode
-	{
-		std::string Body;
-		struct ExprLess {
-			bool operator()(Expr const &l, Expr const &r) const {
-				return l.fImpl < r.fImpl;
-			}
-		};
-		std::map<Expr, std::string, ExprLess> Names;
-	};
 
 	struct RebindableExpr : Expr {
 		// bind nothing
@@ -210,5 +206,18 @@ namespace Diff {
 	// key: the pointer to Expression object
 	// value: how many references of this object
 	extern std::set<DExprImpl*> DCount;
+
+
+	struct CCode
+	{
+		std::string Body;
+		struct ExprLess {
+			bool operator()(Expr const &l, Expr const &r) const {
+				return l.Uid() < r.Uid();
+			}
+		};
+		std::map<Expr, std::string, ExprLess> Names;
+	};
+	CCode ToCCode(Expr const &expr);
 
 }

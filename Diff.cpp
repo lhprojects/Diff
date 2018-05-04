@@ -1,6 +1,7 @@
 #include "Diff.h"
 #include "Quad.h"
 #include "Num.h"
+#include "SamllVector.h"
 #include <map>
 #include <typeinfo>
 #include <cmath>
@@ -38,19 +39,29 @@ namespace Diff {
 
 	struct DExprImpl
 	{
-		virtual void AddNode(std::set<DExprImpl const*> &nodes) const = 0;
 		virtual double DoV() const = 0;
 		virtual Num DoVE() const = 0;
 		virtual Expr DoD(Var const &s) const = 0;
 		virtual void ToString(std::string &s) const = 0;
-		virtual void DoToCCode(std::string &sb) const = 0;
 		// expr can't have a reference to any parent of s
+		// TODO: remove this in the futrue
 		virtual Expr DoReplaceVariable(Var const &s, Expr const &expr) const = 0;
+
+		virtual std::string const & GetTypeName() const = 0;
+		virtual void AddExpressions(std::set<DExprImpl const*> &nodes) const = 0;
+		virtual void GetSubExpressions(SubExpressionVector &expr) const = 0;
+		virtual void GetParameters(SmallVector<double, 2> &pars) const { }
+
 		virtual ~DExprImpl();
 
 		DExprImpl();
+
+	private:
+		friend struct DConstant;
+		friend struct DVariableImpl;
 		DExprImpl(ExprType type);
 		ExprType const fType;
+	public:
 		bool IsConst() const { return fType == ExprType::Const; }
 		bool IsVariable() const { return fType == ExprType::Variable; }
 
@@ -60,17 +71,6 @@ namespace Diff {
 		void DecRef() const {
 			--fRef;
 			if (fRef == 0) delete this;
-		}
-
-		mutable std::string fCCodeName;
-		mutable int fCCodeID;
-		mutable bool fCCodeValid;
-		void ToCCode(std::string &sb) const
-		{
-			if (!fCCodeValid) {
-				DoToCCode(sb);
-				fCCodeValid = true;
-			}
 		}
 
 		Expr ReplaceVariable(Var const &s, Expr const &expr) const;
@@ -95,7 +95,7 @@ namespace Diff {
 		std::vector<DExprImpl const*> const & GetNodesMem() const {
 			if (fNodesMem.size() == 0) {
 				std::set<DExprImpl const *> nodes;
-				AddNode(nodes);
+				AddExpressions(nodes);
 				fNodesMem.reserve(nodes.size());
 				for (auto &p : nodes) {
 					fNodesMem.push_back(p);
@@ -278,26 +278,6 @@ namespace Diff {
 		return fImpl->DoDMem(CastToVar(var));
 	}
 
-	CCode Expr::ToCCode() const
-	{
-		auto &nodes = fImpl->GetNodesMem();
-		int id = 0;
-		for (auto & node : nodes) {
-			node->fCCodeID = id;
-			node->fCCodeValid = false;
-			++id;
-		}
-		std::string sb;
-		fImpl->ToCCode(sb);
-
-		CCode ccode;
-		ccode.Body = std::move(sb);
-		for (auto &node : nodes) {
-			ccode.Names[*node] = std::move(node->fCCodeName);
-		}
-		return std::move(ccode);
-	}
-
 	/****************************	DExpr	end *********************************************/
 
 	/****************************	RebindableExpr	begin  *********************************************/
@@ -345,8 +325,20 @@ namespace Diff {
 		}
 
 
-		void AddNode(std::set<DExprImpl const*> &nodes) const override {
+		void AddExpressions(std::set<DExprImpl const*> &nodes) const override {
 			nodes.insert(this);
+		}
+
+		void GetParameters(SmallVector<double, 2> &v) const override {
+			v.push_back(fV);
+		}
+
+		void GetSubExpressions(SmallVector<Expr, 2> &) const override {
+		}
+
+		static std::string const sTypeName;
+		std::string const &GetTypeName() const override {
+			return sTypeName;
 		}
 
 		Expr DoD(Var const &s) const override {
@@ -357,17 +349,6 @@ namespace Diff {
 			return *this;
 		}
 
-		void DoToCCode(std::string &sb) const override {
-			char n[1024];
-			sprintf(n, "C_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = %.20E;\n",
-				fCCodeName.c_str(), fV);
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			char b[100];
@@ -376,6 +357,8 @@ namespace Diff {
 		}
 
 	};
+
+	std::string const DConstant::sTypeName = "Constant";
 
 	/********************	DConstant	end	*********************************/
 
@@ -417,36 +400,37 @@ namespace Diff {
 	/********************	DConst	end	*********************************/
 
 	/********************	DVariableImpl	begin	*********************************/
+	std::string varName = "Variable";
 	struct DVariableImpl : DExprImpl
 	{
 		Num fVE;
 		double fV;
 		std::string const fName;
 		DVariableImpl(double v) : DVariableImpl(std::string(), v) { }
+
 		DVariableImpl(std::string const &name, double v) : DExprImpl(ExprType::Variable),
 			fV(v), fVE(v, 0, 0), fName(name) { }
+
 		void SetV(double v) {
 			fV = v;
 			fVE = Num(v, 0, 0);
 		}
+
 
 		double DoV() const override { return fV; }
 		Num DoVE() const override { return fVE; }
 
 		Expr DoD(Var const &s) const override;
 
-		void AddNode(std::set<DExprImpl const*> &nodes) const override {
-			nodes.insert(this);
+		void GetSubExpressions(SubExpressionVector &) const override {
 		}
 
-		void DoToCCode(std::string &sb) const override {
-			if (fName.empty()) {
-				char b[1024];
-				sprintf(b, "v_%d", fCCodeID);
-				fCCodeName = b;
-			} else {
-				fCCodeName = fName;
-			}
+		std::string const &GetTypeName() const {
+			return varName;
+		}
+
+		void AddExpressions(std::set<DExprImpl const*> &nodes) const override {
+			nodes.insert(this);
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -456,7 +440,14 @@ namespace Diff {
 			return *this;
 		}
 
-		void ToString(std::string &sb) const override;
+		void ToString(std::string & sb) const override
+		{
+			if (fName.empty()) {
+				sb.append("<").append(std::to_string((size_t)this)).append(">");
+			} else {
+				sb.append(fName);
+			}
+		}
 	};
 
 
@@ -469,14 +460,6 @@ namespace Diff {
 		}
 	}
 
-	void DVariableImpl::ToString(std::string & sb) const
-	{
-		if (fName.empty()) {
-			sb.append("<").append(std::to_string((size_t)this)).append(">");
-		} else {
-			sb.append(fName);
-		}
-	}
 	/********************	DVariableImpl	end		*********************************/
 
 	std::vector<Var> Expr::GetVariablesList() const
@@ -490,6 +473,21 @@ namespace Diff {
 			}
 		}
 		return ret;
+	}
+
+	std::string const & Expr::GetTypeName() const
+	{
+		return fImpl->GetTypeName();
+	}
+
+	void Expr::GetSubExpressions(SubExpressionVector& expr) const
+	{
+		fImpl->GetSubExpressions(expr);
+	}
+
+	void Expr::GetParameters(ParameterVector& expr) const
+	{
+		fImpl->GetParameters(expr);
 	}
 
 
@@ -539,9 +537,13 @@ namespace Diff {
 		DUnitaryFunction(Expr &&s) : f1(std::move(s)) {
 		}
 
-		void AddNode(std::set<DExprImpl const*> &nodes) const override {
+		void GetSubExpressions(SubExpressionVector &exprs) const override {
+			exprs.push_back(f1);
+		}
+
+		void AddExpressions(std::set<DExprImpl const*> &nodes) const override {
 			if (nodes.insert(this).second) {
-				f1.fImpl->AddNode(nodes);
+				f1.fImpl->AddExpressions(nodes);
 			}
 		}
 
@@ -549,53 +551,7 @@ namespace Diff {
 	};
 	/****************************	Unitary	Function *********************************************/
 
-
-	struct DSqrt : DUnitaryFunction {
-
-		using DUnitaryFunction::DUnitaryFunction;
-		double DoV() const override {
-			return std::sqrt(f1.fImpl->VMem());
-		}
-
-		Num DoVE() const override {
-			return sqrt(f1.fImpl->VEMem());
-		}
-
-		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
-			auto f = f1.ReplaceVariable(s, expr);
-			if (f1.fImpl == f.fImpl) {
-				return *this;
-			}
-			return sqrt(f);
-		}
-
-		Expr DoD(Var const &s) const override {
-			// don't ref this self
-			return Const(0.5)*D(f1, s) / sqrt(f1);
-		}
-		
-		void DoToCCode(std::string &sb) const
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "sqrt_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = sqrt(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
-		}
-
-		void ToString(std::string & sb) const override
-		{
-			sb.append("sqrt(");
-			f1.fImpl->ToString(sb);
-			sb.append(")");
-		}
-	};
-
+	std::string const DlogName = "log";
 	struct DLog : DUnitaryFunction {
 
 		using DUnitaryFunction::DUnitaryFunction;
@@ -615,22 +571,12 @@ namespace Diff {
 			return log(f);
 		}
 
-		Expr DoD(Var const &s) const override {
-			return D(f1, s) / f1;
+		std::string const & GetTypeName() const {
+			return DlogName;
 		}
 
-		void DoToCCode(std::string &sb) const override
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "log_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = log(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
+		Expr DoD(Var const &s) const override {
+			return D(f1, s) / f1;
 		}
 
 		void ToString(std::string & sb) const override
@@ -642,12 +588,22 @@ namespace Diff {
 
 	};
 
+	std::string const DpowName = "pow";
+
 	struct DPowN : DUnitaryFunction {
 		double const fN;
 
 		DPowN(Expr const &s, double n) : DUnitaryFunction(s), fN(n) {
 		}
 		DPowN(Expr &&s, double n) : DUnitaryFunction(std::move(s)), fN(n) {
+		}
+
+		std::string const & GetTypeName() const {
+			return DpowName;
+		}
+
+		void GetParameters(ParameterVector &v) const override {
+			v.push_back(fN);
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -680,86 +636,6 @@ namespace Diff {
 			return Const(fN)*pow(f1, fN - 1)*D(f1, s);
 		}
 
-		void DoToCCode(std::string &sb) const override
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "pow_%d", fCCodeID);
-			fCCodeName = n;
-
-
-			char b[1024];
-			if (fN == 0) {
-				sprintf(b, "double const %s = 1;\n",
-					fCCodeName.c_str());
-			} else if (fN == 1) {
-				sprintf(b, "double const %s = %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 2) {
-				sprintf(b, "double const %s = %s * %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 3) {
-				sprintf(b, "double const %s = %s * %s * %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 4) {
-				sprintf(b, "double const %s = %s * %s * %s * %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 5) {
-				sprintf(b, "double const %s = %s * %s * %s * %s * %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 0.5) {
-				sprintf(b, "double const %s = sqrt(%s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 1.5) {
-				sprintf(b, "double const %s = sqrt(%s) * %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == 2.5) {
-				sprintf(b, "double const %s = sqrt(%s) * %s * %s;\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -0.5) {
-				sprintf(b, "double const %s = 1 / sqrt(%s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -1.5) {
-				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -2) {
-				sprintf(b, "double const %s = 1 / (%s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -2.5) {
-				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -3) {
-				sprintf(b, "double const %s = 1 / (%s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -3.5) {
-				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -4) {
-				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -4.5) {
-				sprintf(b, "double const %s = 1 / (sqrt(%s) * %s * %s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -5) {
-				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -6) {
-				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(),
-					f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else if (fN == -7) {
-				sprintf(b, "double const %s = 1 / (%s * %s * %s * %s * %s * %s * %s);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(),
-					f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			} else {
-				sprintf(b, "double const %s = pow(%s, %.20E);\n",
-					fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str(), fN);
-			}
-
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			if (fabs(fN - 1) <= 0.000001) {
@@ -772,6 +648,7 @@ namespace Diff {
 
 	};
 
+	std::string const DexpName = "exp";
 	struct DExp : DUnitaryFunction
 	{
 		using DUnitaryFunction::DUnitaryFunction;
@@ -782,6 +659,10 @@ namespace Diff {
 
 		Num DoVE() const override {
 			return exp(f1.fImpl->VEMem());
+		}
+
+		std::string const & GetTypeName() const {
+			return DexpName;
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -799,20 +680,6 @@ namespace Diff {
 			return D(f1, s)*exp(f1);
 		}
 
-		void DoToCCode(std::string &sb) const override
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "exp_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = exp(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			sb.append("exp(");
@@ -822,6 +689,7 @@ namespace Diff {
 
 	};
 
+	std::string const DsinName = "sin";
 	struct DSin : DUnitaryFunction
 	{
 		using DUnitaryFunction::DUnitaryFunction;
@@ -835,6 +703,9 @@ namespace Diff {
 			return sin(f1.fImpl->VEMem());
 		}
 
+		std::string const & GetTypeName() const {
+			return DsinName;
+		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
 			auto f = f1.ReplaceVariable(s, expr);
@@ -849,20 +720,6 @@ namespace Diff {
 			return D(f1, s)*cos(f1);
 		}
 
-		void DoToCCode(std::string &sb) const override
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "sin_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = sin(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			sb.append("sin(");
@@ -872,6 +729,7 @@ namespace Diff {
 
 	};
 
+	std::string const DcosName = "cos";
 	struct DCos : DUnitaryFunction
 	{
 
@@ -885,6 +743,9 @@ namespace Diff {
 			return cos(f1.fImpl->VEMem());
 		}
 
+		std::string const & GetTypeName() const {
+			return DcosName;
+		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
 			auto f = f1.ReplaceVariable(s, expr);
@@ -899,20 +760,6 @@ namespace Diff {
 			return -D(f1, s)*sin(f1);
 		}
 
-		void DoToCCode(std::string &sb) const 
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "cos_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = cos(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			sb.append("cos(");
@@ -922,6 +769,7 @@ namespace Diff {
 
 	};
 
+	std::string const DsinhName = "sinh";
 	struct DSinh : DUnitaryFunction
 	{
 
@@ -929,6 +777,10 @@ namespace Diff {
 		
 		double DoV() const override {
 			return std::sinh(f1.fImpl->VMem());
+		}
+
+		std::string const & GetTypeName() const {
+			return DsinhName;
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -948,20 +800,6 @@ namespace Diff {
 			return D(f1, s)*cosh(f1);
 		}
 
-		void DoToCCode(std::string &sb) const override
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "sinh_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = sinh(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			sb.append("sinh(");
@@ -971,6 +809,7 @@ namespace Diff {
 
 	};
 
+	std::string const DcoshName = "cosh";
 	struct DCosh : DUnitaryFunction
 	{
 		using DUnitaryFunction::DUnitaryFunction;
@@ -981,6 +820,10 @@ namespace Diff {
 
 		Num DoVE() const override {
 			return cosh(f1.fImpl->VEMem());
+		}
+
+		std::string const & GetTypeName() const {
+			return DcoshName;
 		}
 
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const override {
@@ -994,20 +837,6 @@ namespace Diff {
 		Expr DoD(Var const &s) const override
 		{
 			return D(f1, s)*sinh(f1);
-		}
-
-		void DoToCCode(std::string &sb) const
-		{
-			f1.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "cosh_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = cosh(%s);\n",
-				fCCodeName.c_str(), f1.fImpl->fCCodeName.c_str());
-			sb.append(b);
 		}
 
 		void ToString(std::string & sb) const override
@@ -1033,18 +862,28 @@ namespace Diff {
 		DBinaryFunction(Expr &&s1, Expr const &s2) : f1(std::move(s1)), f2(s2) {
 		}
 
-		void AddNode(std::set<DExprImpl const*> &cleaned) const override {
+		void GetSubExpressions(SubExpressionVector &exprs) const override {
+			exprs.push_back(f1);
+			exprs.push_back(f2);
+		}
+
+		void AddExpressions(std::set<DExprImpl const*> &cleaned) const override {
 			if (cleaned.insert(this).second) {
-				f1.fImpl->AddNode(cleaned);
-				f2.fImpl->AddNode(cleaned);
+				f1.fImpl->AddExpressions(cleaned);
+				f2.fImpl->AddExpressions(cleaned);
 			}
 		}
 
 	};
 	/****************************	Binary	Function end *********************************************/
 
+	std::string const DaddhName = "add";
 	struct DAdd : DBinaryFunction {
 		using DBinaryFunction::DBinaryFunction;
+
+		std::string const & GetTypeName() const {
+			return DaddhName;
+		}
 
 		double DoV() const override {
 			return f1.fImpl->VMem() + f2.fImpl->VMem();
@@ -1068,24 +907,6 @@ namespace Diff {
 			return D(f1, s) + D(f2, s);
 		}
 
-		void DoToCCode(std::string &sb) const
-		{
-			f1.fImpl->ToCCode(sb);
-			f2.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "add_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = %s + %s;\n",
-				fCCodeName.c_str(),
-				f1.fImpl->fCCodeName.c_str(),
-				f2.fImpl->fCCodeName.c_str()
-				);
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			f1.fImpl->ToString(sb);
@@ -1095,9 +916,14 @@ namespace Diff {
 
 	};
 
+	std::string const DsubhName = "sub";
 	struct DSub : DBinaryFunction {
 
 		using DBinaryFunction::DBinaryFunction;
+
+		std::string const & GetTypeName() const {
+			return DsubhName;
+		}
 
 		double DoV() const override {
 			return f1.fImpl->VMem() - f2.fImpl->VMem();
@@ -1121,24 +947,6 @@ namespace Diff {
 			return D(f1, s) - D(f2, s);
 		}
 
-		void DoToCCode(std::string &sb) const
-		{
-			f1.fImpl->ToCCode(sb);
-			f2.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "sub_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = %s - %s;\n",
-				fCCodeName.c_str(),
-				f1.fImpl->fCCodeName.c_str(),
-				f2.fImpl->fCCodeName.c_str()
-				);
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 
@@ -1157,8 +965,13 @@ namespace Diff {
 
 	};
 
+	std::string const DmulhName = "mul";
 	struct DMul : DBinaryFunction {
 		using DBinaryFunction::DBinaryFunction;
+
+		std::string const & GetTypeName() const {
+			return DmulhName;
+		}
 
 		double DoV() const override {
 			return f1.fImpl->VMem() * f2.fImpl->VMem();
@@ -1184,25 +997,6 @@ namespace Diff {
 			return f1_ * f2_;
 		}
 
-		void DoToCCode(std::string &sb) const
-		{
-			f1.fImpl->ToCCode(sb);
-			f2.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "mul_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = %s * %s;\n",
-				fCCodeName.c_str(),
-				f1.fImpl->fCCodeName.c_str(),
-				f2.fImpl->fCCodeName.c_str()
-				);
-			sb.append(b);
-		}
-
-
 		void ToString(std::string & sb) const override
 		{
 			if (typeid(*f1.fImpl) == typeid(DSub) || typeid(*f2.fImpl) == typeid(DAdd)) {
@@ -1220,9 +1014,14 @@ namespace Diff {
 
 	};
 
+	std::string const DdivhName = "div";
 	struct DDiv : DBinaryFunction {
 
 		using DBinaryFunction::DBinaryFunction;
+
+		std::string const & GetTypeName() const {
+			return DdivhName;
+		}
 
 		double DoV() const override {
 			return f1.fImpl->VMem() / f2.fImpl->VMem();
@@ -1247,24 +1046,6 @@ namespace Diff {
 			return f1_ / f2_;
 		}
 
-		void DoToCCode(std::string &sb) const override
-		{
-			f1.fImpl->ToCCode(sb);
-			f2.fImpl->ToCCode(sb);
-
-			char n[1024];
-			sprintf(n, "div_%d", fCCodeID);
-			fCCodeName = n;
-
-			char b[1024];
-			sprintf(b, "double const %s = %s / %s;\n",
-				fCCodeName.c_str(),
-				f1.fImpl->fCCodeName.c_str(),
-				f2.fImpl->fCCodeName.c_str()
-				);
-			sb.append(b);
-		}
-
 		void ToString(std::string & sb) const override
 		{
 			if (1 || typeid(*f1.fImpl) == typeid(DSub) || typeid(*f2.fImpl) == typeid(DAdd)) {
@@ -1283,6 +1064,7 @@ namespace Diff {
 	};
 
 
+	std::string const DinthName = "Integrate";
 
 	struct IntegralImpl : DExprImpl {
 		Var fX;
@@ -1290,16 +1072,28 @@ namespace Diff {
 		Expr fX1;
 		Expr fY;
 
-		IntegralImpl(Var const &s1, Expr const &s2, Expr const &s3, Expr const &s4) : fX(0.0), fX0(s2), fX1(s3), fY(s4.ReplaceVariable(s1, fX)) {
+		IntegralImpl(Var const &s1, Expr const &s2, Expr const &s3, Expr const &s4) : fX(s1), fX0(s2), fX1(s3), fY(s4) {
 		}
 
-		void AddNode(std::set<DExprImpl const*> &nodes) const override
+		std::string const & GetTypeName() const {
+			return DinthName;
+		}
+
+		void GetSubExpressions(SubExpressionVector &exprs) const {
+			exprs.push_back(fY);
+			exprs.push_back(fX);
+			exprs.push_back(fX0);
+			exprs.push_back(fX1);
+		}
+
+		void AddExpressions(std::set<DExprImpl const*> &nodes) const override
 		{
-			nodes.insert(this);
-			fX.fImpl->AddNode(nodes);
-			fX0.fImpl->AddNode(nodes);
-			fX1.fImpl->AddNode(nodes);
-			fX.fImpl->AddNode(nodes);
+			if (nodes.insert(this).second) {
+				fY.fImpl->AddExpressions(nodes);
+				fX.fImpl->AddExpressions(nodes);
+				fX0.fImpl->AddExpressions(nodes);
+				fX1.fImpl->AddExpressions(nodes);
+			}
 		}
 
 		double DoV() const
@@ -1354,15 +1148,6 @@ namespace Diff {
 			return d0 + d1 + d2;
 		}
 
-		void DoToCCode(std::string &sb) const
-		{
-			throw std::logic_error("not implemented");
-		}
-		void DoToAVXCode(std::string &sb) const
-		{
-			throw std::logic_error("not implemented");
-		}
-
 		void ToString(std::string &sb) const override {
 			sb.append("int(");
 			fX.fImpl->ToString(sb);
@@ -1377,7 +1162,7 @@ namespace Diff {
 
 	};
 
-
+	std::string sname = "Sum";
 	struct SumImpl : DExprImpl
 	{
 		Var fI;
@@ -1389,10 +1174,26 @@ namespace Diff {
 		SumImpl(Expr const &s1, Var const &i, double first, double last, double inc) : fI(i), fExpr(s1), fFirst(first), fLast(last), fInc(inc) {
 		}
 
-		void AddNode(std::set<DExprImpl const*> &nodes) const override
+		void AddExpressions(std::set<DExprImpl const*> &nodes) const override
 		{
-			nodes.insert(this);
-			fExpr.fImpl->AddNode(nodes);
+			if (nodes.insert(this).second) {
+				fI.fImpl->AddExpressions(nodes);
+				fExpr.fImpl->AddExpressions(nodes);
+			}
+		}
+		std::string const &GetTypeName() const override {
+			return sname;
+		}
+
+		void GetSubExpressions(SubExpressionVector &expr) const {
+			expr.push_back(fExpr);
+			expr.push_back(fI);
+		}
+
+		void GetParameters(ParameterVector &pars) const {
+			pars.push_back(fFirst);
+			pars.push_back(fLast);
+			pars.push_back(fInc);
 		}
 
 		double DoV() const
@@ -1453,15 +1254,25 @@ namespace Diff {
 
 	};
 
+	std::string gl64_name = "GL64PointsW";
 	struct GL64Weightmpl : DExprImpl {
 
 		Var fIndex;
 		GL64Weightmpl(Var const &var) : fIndex(var) {
 		}
 
-		void AddNode(std::set<DExprImpl const*> &s) const override {
-			s.insert(this);
-			fIndex.fImpl->AddNode(s);
+		void AddExpressions(std::set<DExprImpl const*> &s) const override {
+			if (s.insert(this).second) {
+				fIndex.fImpl->AddExpressions(s);
+			}
+		}
+
+		void GetSubExpressions(SubExpressionVector &v) const override {
+			v.push_back(fIndex);
+		}
+
+		std::string const &GetTypeName() const override {
+			return gl64_name;
 		}
 
 		double DoV() const override {
@@ -1481,10 +1292,6 @@ namespace Diff {
 		void ToString(std::string &sb) const override {
 			sb.append("gl_w[i]");
 		}
-
-		void DoToCCode(std::string &sb) const override {
-			throw std::logic_error("not implemented");
-		}
 		
 		// expr can't have a reference to any parent of s
 		Expr DoReplaceVariable(Var const &s, Expr const &expr) const {
@@ -1496,15 +1303,25 @@ namespace Diff {
 
 	};
 
+	std::string gl64_name_x = "GL64PointsX";
 	struct GL64Ximpl : DExprImpl {
 
 		Var fIndex;
 		GL64Ximpl(Var const &var) : fIndex(var) {
 		}
 
-		void AddNode(std::set<DExprImpl const*> &s) const override {
-			s.insert(this);
-			fIndex.fImpl->AddNode(s);
+		void AddExpressions(std::set<DExprImpl const*> &s) const override {
+			if (s.insert(this).second) {
+				fIndex.fImpl->AddExpressions(s);
+			}
+		}
+
+		void GetSubExpressions(SubExpressionVector &v) const override {
+			v.push_back(fIndex);
+		}
+
+		std::string const &GetTypeName() const override {
+			return gl64_name_x;
 		}
 
 		double DoV() const override {
