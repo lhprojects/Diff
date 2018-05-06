@@ -875,6 +875,13 @@ void test_quad() {
 			return 1 / sqrt(x*one_minus_x);
 		}, 0, 1) - Pi);
 	}
+
+	{
+		TEST_SAME(ExpSinh65Points([](double x) { return exp(-x); }, 1), exp(-1));
+		printf("%.1E\n", ExpSinh65Points([](double x) { return exp(-x); }, 1) - exp(-1));
+		TEST_SAME(ExpSinh65Points([](double x) { return 1/((1+x)*(1 + x)); }, 0), 1.0);
+		printf("%.1E\n", ExpSinh65Points([](double x) { return 1/((1 + x)*(1 + x)); }, 0) - 1.0);
+	}
 }
 
 

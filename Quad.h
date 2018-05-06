@@ -39,6 +39,7 @@ namespace Diff {
 		return TanhSinh65Points(std::function<double(double, double)>(l), x0, x1);
 	}
 
+	double ExpSinh65Points(std::function<double(double x)> const &f, double x0);
 	double Tanh65Points(std::function<double(double x)> const &f, double x0, double x1);
 	double Erf65Points(std::function<double(double x)> const &f, double x0, double x1);
 }

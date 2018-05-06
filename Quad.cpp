@@ -237,6 +237,7 @@ namespace Diff {
 
 
 	}
+
 	double TanhSinh65Points(std::function<double(double x)> const &f, double x0, double x1)
 	{
 
@@ -256,6 +257,25 @@ namespace Diff {
 			I += f(x) * w;
 		}
 		I *= (x1 - x0) / 2;
+		return I;
+	}
+
+	double ExpSinh65Points(std::function<double(double x)> const &f, double x0)
+	{
+
+		double const h = 0.11;
+		double const factor = 1;
+		int const n = 32;
+		double I = 0;
+
+		for (int k = -32; k <= 32; ++k)
+		{
+			double func = factor * exp(0.5*Pi*sinh(k*h));
+			double x = x0 + func;
+			double w = 0.5 * Pi * cosh(k*h) * func;
+			double wh = w * h;
+			I += f(x) * wh;
+		}
 		return I;
 	}
 

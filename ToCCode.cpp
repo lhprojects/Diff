@@ -88,7 +88,44 @@ namespace Diff {
 				names[expr] = n;
 				ParameterVector ps;
 				expr.GetParameters(ps);
-				sprintf(b, "double const %s = pow(%s, %.20E);\n", n, names[subs.at(0)].c_str(), ps.at(0));
+				auto &oprd = names[subs.at(0)];
+				if (ps.at(0) == 0) {
+					sprintf(b, "double const %s = 1;\n", n);
+				} else if (ps.at(0) == 0.5) {
+					sprintf(b, "double const %s = sqrt(%s);\n", n, oprd.c_str());
+				} else if (ps.at(0) == 1) {
+					sprintf(b, "double const %s = %s;\n", n, oprd.c_str());
+				} else if (ps.at(0) == 1.5) {
+					sprintf(b, "double const %s = %s * sqrt(%s);\n", n, oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == 2) {
+					sprintf(b, "double const %s = %s * %s;\n", n, oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == 2.5) {
+					sprintf(b, "double const %s = %s * %s * sqrt(%s);\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == 3) {
+					sprintf(b, "double const %s = %s * %s * %s;\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == 3.5) {
+					sprintf(b, "double const %s = %s * %s * %s * sqrt(%s);\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == 4) {
+					sprintf(b, "double const %s = %s * %s * %s * %s;\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == -0.5) {
+					sprintf(b, "double const %s = 1 / sqrt(%s);\n", n, oprd.c_str());
+				} else if (ps.at(0) == -1) {
+					sprintf(b, "double const %s = 1 / %s;\n", n, oprd.c_str());
+				} else if (ps.at(0) == -1.5) {
+					sprintf(b, "double const %s = 1 / (%s * sqrt(%s));\n", n, oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == -2) {
+					sprintf(b, "double const %s = 1 / (%s * %s);\n", n, oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == -2.5) {
+					sprintf(b, "double const %s = 1 / (%s * %s * sqrt(%s));\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == -3) {
+					sprintf(b, "double const %s = 1 / (%s * %s * %s);\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == -3.5) {
+					sprintf(b, "double const %s = 1 / (%s * %s * %s * sqrt(%s));\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else if (ps.at(0) == -4) {
+					sprintf(b, "double const %s = 1 / (%s * %s * %s * %s);\n", n, oprd.c_str(), oprd.c_str(), oprd.c_str(), oprd.c_str());
+				} else {
+					sprintf(b, "double const %s = pow(%s, %.20E);\n", n, names[subs.at(0)].c_str(), ps.at(0));
+				}
 			} else {
 				throw std::logic_error("not implemented");
 			}
