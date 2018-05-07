@@ -18,23 +18,23 @@ namespace Diff {
 	double TanhSinh65Points(std::function<double(double x_minus_x0, double x1_minus_x)> const &f, double x0, double x1);
 
 	template<class L>
-	std::enable_if_t<
+	typename std::enable_if<
 		std::is_same< 
 			decltype(std::declval<L>()(std::declval<double>())),
 			double
 		>::value
-	, double>
+	, double>::type
 	TanhSinh65Points(L const &l, double x0, double x1) {
 		return TanhSinh65Points(std::function<double(double)>(l), x0, x1);
 	}
 
 	template<class L, class DoubleArg = int>
-	std::enable_if_t<
+	typename std::enable_if<
 		std::is_same<
 			decltype(std::declval<L>()(std::declval<double>(), std::declval<double>())),
 			double
 		>::value	
-	, double>
+	, double>::type
 	TanhSinh65Points(L const &l, double x0, double x1) {
 		return TanhSinh65Points(std::function<double(double, double)>(l), x0, x1);
 	}

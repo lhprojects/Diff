@@ -1,5 +1,5 @@
 #include "Diff.h"
-
+#include <string.h>
 
 namespace Diff {
 
@@ -66,7 +66,7 @@ namespace Diff {
 				} else {
 					names[expr] = var.GetName();
 				}
-				sprintf(b, "");
+				strcpy(b, "");
 
 			} else if (ufs.find(type_name) != ufs.end()) {
 				sprintf(n, "%s_%llu", type_name.c_str(), (unsigned long long)expr.Uid());
