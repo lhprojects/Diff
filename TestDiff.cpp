@@ -2,6 +2,8 @@
 #include "Func.h"
 #include "Num.h"
 #include "Quad.h"
+
+#include <float.h>
 #include <chrono>
 #include <math.h>
 #include <cmath>
