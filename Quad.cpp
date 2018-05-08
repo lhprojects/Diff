@@ -1,8 +1,10 @@
 #include "Quad.h"
-#include "Constants.h"
 #include <math.h>
+#include <cmath>
 
 namespace Diff {
+
+	double const Pi = 3.14159265358979323846264338328;
 
 	double const gl_x_16points[] = {
 		0.0950125098376374,
@@ -27,16 +29,16 @@ namespace Diff {
 	};
 
 
-	double GaussLegendre16Points(std::function<double(double x)> const &f, double x0, double x1)
+	double GaussLegendre16Points(double(*stub)(void const* ptr, double x), void const *ptr, double x0, double x1)
 	{
 		double delta = (x1 - x0) / 2;
 		double median = (x1 + x0) / 2;
 		double h = 0;
 		for (int i = 0; i < 8; ++i) {
 			double x = gl_x_16points[i] * delta + median;
-			h += f(x)*gl_w_16points[i];
+			h += stub(ptr, x)*gl_w_16points[i];
 			x = -gl_x_16points[i] * delta + median;
-			h += f(x)*gl_w_16points[i];
+			h += stub(ptr, x)*gl_w_16points[i];
 		}
 		h *= delta;
 		return h;
@@ -112,7 +114,7 @@ namespace Diff {
 		0.0017832807216964329472961,
 	};
 
-	double GaussLegendre64Points(std::function<double(double x)> const &f, double x0, double x1)
+	double GaussLegendre64Points(double(*stub)(void const* ptr, double x), void const *ptr, double x0, double x1)
 	{
 		double delta = (x1 - x0) / 2;
 		double median = (x1 + x0) / 2;
@@ -121,10 +123,10 @@ namespace Diff {
 		for (int i = 0; i < 32; ++i) {
 			double x = -gl_x_64points[i] * delta + median;
 			//printf("%d %f %f %f %f\n", i, x, gl_w_64points[i], f(x), h);
-			h += f(x)*gl_w_64points[i];
+			h += stub(ptr, x)*gl_w_64points[i];
 			x = gl_x_64points[i] * delta + median;
 			//printf("%d %f %f %f %f\n", i, x, gl_w_64points[i], f(x), h);
-			h += f(x)*gl_w_64points[i];
+			h += stub(ptr, x)*gl_w_64points[i];
 		}
 		h = h * delta;
 		return h;
@@ -209,7 +211,7 @@ namespace Diff {
 		exp(0.5*Pi*std::sinh(-32 * ts_65points_h)) / std::cosh(0.5*Pi*std::sinh(32 * ts_65points_h)),
 	};
 
-	double TanhSinh65Points(std::function<double(double x_minus_x0, double x1_minus_x)> const &f, double x0, double x1)
+	double TanhSinh65Points(double(*stub)(void const*, double, double), void const *ptr, double x0, double x1)
 	{
 
 		int n = 32;
@@ -230,7 +232,7 @@ namespace Diff {
 				w = tanh_sinh_w_65points[-k];
 			}
 
-			I += f(x_minus_x0, x1_minus_x) * w;
+			I += stub(ptr, x_minus_x0, x1_minus_x) * w;
 		}
 		I *= (x1 - x0) / 2;
 		return I;
@@ -238,7 +240,7 @@ namespace Diff {
 
 	}
 
-	double TanhSinh65Points(std::function<double(double x)> const &f, double x0, double x1)
+	double TanhSinh65Points(double(*stub)(void const*, double), void const *ptr, double x0, double x1)
 	{
 
 		int n = 32;
@@ -254,13 +256,13 @@ namespace Diff {
 			if (k >= 0) w = tanh_sinh_w_65points[k];
 			else if (k < 0) w = tanh_sinh_w_65points[-k];
 
-			I += f(x) * w;
+			I += stub(ptr, x) * w;
 		}
 		I *= (x1 - x0) / 2;
 		return I;
 	}
 
-	double ExpSinh65Points(std::function<double(double x)> const &f, double x0)
+	double ExpSinh65Points(double(*stub)(void const* ptr, double x), void const *ptr, double x0)
 	{
 
 		double const h = 0.11;
@@ -274,12 +276,12 @@ namespace Diff {
 			double x = x0 + func;
 			double w = 0.5 * Pi * cosh(k*h) * func;
 			double wh = w * h;
-			I += f(x) * wh;
+			I += stub(ptr, x) * wh;
 		}
 		return I;
 	}
 
-	double Tanh65Points(std::function<double(double x)> const &f, double x0, double x1)
+	double Tanh65Points(double(*stub)(void const* ptr, double x), void const *ptr, double x0, double x1)
 	{
 		double h = Pi / sqrt(65);
 		int n = 32;
@@ -291,14 +293,14 @@ namespace Diff {
 			double x;
 			if (k < 0) x = 0.5 * tanhkh_plus_one* (x1 - x0) + x0;
 			else x = x1 - 0.5 * one_minus_tankh *(x1 - x0);
-			I += f(x) / (coshkh*coshkh);
+			I += stub(ptr, x) / (coshkh*coshkh);
 		}
 		I *= h;
 		I *= (x1 - x0) / 2;
 		return I;
 	}
 
-	double Erf65Points(std::function<double(double x)> const &f, double x0, double x1)
+	double Erf65Points(double(*stub)(void const* ptr, double x), void const *ptr, double x0, double x1)
 	{
 		double h = 0.7 * pow(65, -1. / 3);
 		int n = 32;
@@ -313,7 +315,7 @@ namespace Diff {
 				double erfckh = std::erfc(k*h);
 				x = x1 - erfckh / 2 * (x1 - x0);
 			}
-			I += f(x)*exp(-kh*kh);
+			I += stub(ptr, x)*exp(-kh*kh);
 		}
 		I *= 2 / std::sqrt(Pi);
 		I *= h;

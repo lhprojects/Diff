@@ -7,6 +7,7 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
+#include <functional>
 using namespace Diff;
 //#define TEST_CCODE
 
