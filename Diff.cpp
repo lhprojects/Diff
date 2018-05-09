@@ -533,6 +533,40 @@ namespace Diff {
 
 	};
 
+	std::string const DtanName = "tan";
+	struct TanImpl : DUnitaryFunction
+	{
+
+		using DUnitaryFunction::DUnitaryFunction;
+		double EvalV() const override
+		{
+			return std::tan(f1.fImpl->VMem());
+		}
+
+		Num EvalVE() const override
+		{
+			return tan(f1.fImpl->VEMem());
+		}
+
+		std::string const & GetTypeName() const
+		{
+			return DtanName;
+		}
+
+		Expr EvalD(Var const &s) const override
+		{
+			return pow(cos(f1), -2);
+		}
+
+		void ToString(std::string & sb) const override
+		{
+			sb.append("tan(");
+			f1.fImpl->ToString(sb);
+			sb.append(")");
+		}
+
+	};
+
 	std::string const DpowName = "pow";
 
 	struct DPowN : DUnitaryFunction {
@@ -1265,6 +1299,14 @@ namespace Diff {
 			return Const(std::cos(s.fImpl->EvalV()));
 		}
 		return *new DCos(s);
+	}
+
+	Expr tan(Expr const &s)
+	{
+		if (s.fImpl->IsConst()) {
+			return Const(std::tan(s.fImpl->EvalV()));
+		}
+		return *new TanImpl(s);
 	}
 
 	Expr sinh(Expr const &s)

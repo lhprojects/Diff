@@ -73,6 +73,14 @@ namespace Diff {
 				} else {
 					p = log(new_sub0);
 				}
+			} else if (name == "tan") {
+				what.GetSubExpressions(subs);
+				auto new_sub0 = replace(subs.at(0));
+				if (subs[0].Uid() == new_sub0.Uid()) {
+					p = what;
+				} else {
+					p = tan(new_sub0);
+				}
 			} else if (name == "pow") {
 				what.GetSubExpressions(subs);
 				auto new_sub0 = replace(subs.at(0));

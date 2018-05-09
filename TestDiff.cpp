@@ -131,14 +131,6 @@ void test_Diff() {
 		TPrintf("sqrt(m^2+p^2)'       : %s\n", energy.D(p).ToString().c_str());
 	}
 
-	{ // constants fold
-		Const mass = 1;
-		Const p = 1;
-		Expr energy = exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2));
-		TEST_SAME(energy.V(), exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)).V(), 2)));
-		TPrintf("exp(pow(log(1+cos(sin(sqrt(mass*mass + p*p))-1)), 2))        : %s\n", energy.ToString().c_str());
-	}
-
 	{ // numerical test
 		Const mass = 1;
 		Var p = 1;
@@ -191,6 +183,24 @@ void test_Diff() {
 	TEST_TRUE(DCount.size() <= 3);
 
 }
+
+void test_constant_fold()
+{
+	// constants fold
+	TPrintf("exp(1)   : %s\n", exp(Const(1)).ToString().c_str());
+	TPrintf("sin(1)   : %s\n", sin(Const(1)).ToString().c_str());
+	TPrintf("cos(1)   : %s\n", cos(Const(1)).ToString().c_str());
+	TPrintf("tan(1)   : %s\n", tan(Const(1)).ToString().c_str());
+	TPrintf("sinh(1)  : %s\n", sinh(Const(1)).ToString().c_str());
+	TPrintf("cosh(1)  : %s\n", cosh(Const(1)).ToString().c_str());
+	TPrintf("pow(1, 1): %s\n", pow(Const(1), 2).ToString().c_str());
+	TPrintf("sqrt(1)  : %s\n", sqrt(Const(1)).ToString().c_str());
+	TPrintf("10+10    : %s\n", (Const(10) + 10).ToString().c_str());
+	TPrintf("10-10    : %s\n", (Const(10) - 10).ToString().c_str());
+	TPrintf("10*10    : %s\n", (Const(10) * 10).ToString().c_str());
+	TPrintf("10/10    : %s\n", (Const(10) / 10).ToString().c_str());
+}
+
 
 void fix_var() {
 
@@ -901,6 +911,7 @@ int main()
 	test_num();
 	test_V();
 	test_Diff();
+	test_constant_fold();
 	fix_var();
 	testfunc();
 	test_quad();

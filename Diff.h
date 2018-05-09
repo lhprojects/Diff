@@ -162,6 +162,7 @@ namespace Diff {
 	Expr exp(Expr const &s);
 	Expr sin(Expr const &s);
 	Expr cos(Expr const &s);
+	Expr tan(Expr const &s);
 	Expr sinh(Expr const &s);
 	Expr cosh(Expr const &s);
 	inline Expr POW2(Expr const &s) { return pow(s, 2); }

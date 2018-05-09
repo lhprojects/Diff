@@ -75,6 +75,14 @@ namespace Diff {
 		return Num(v, e1, e2);
 	}
 
+	inline Num tan(Num const &x)
+	{
+		double v = std::tan(x.V());
+		double e1 = x.E1()*fabs(1/std::cos(x.V())) + intrie1(v);
+		double e2 = x.E2()*squr(1/std::cos(x.V())) + intrie2(v);
+		return Num(v, e1, e2);
+	}
+
 	inline Num cosh(Num const &x) {
 		double v = std::cosh(x.V());
 		double e1 = x.E1()*fabs(std::sinh(x.V())) + intrie1(v);

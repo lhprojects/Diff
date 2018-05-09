@@ -22,6 +22,7 @@ namespace Diff {
 				"sinh",
 				"cosh",
 				"log",
+				"tan"
 			};
 			for (auto x : unitary) {
 				ufs.insert(x);
