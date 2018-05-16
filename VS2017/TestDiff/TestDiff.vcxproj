@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Diff.cpp" />
+    <ClCompile Include="..\..\Eval.cpp" />
     <ClCompile Include="..\..\Quad.cpp" />
     <ClCompile Include="..\..\ReplaceVariable.cpp" />
     <ClCompile Include="..\..\TestDiff.cpp" />

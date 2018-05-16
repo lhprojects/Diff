@@ -1,6 +1,5 @@
 #include "Diff.h"
 #include "Quad.h"
-#include "Num.h"
 #include "SamllVector.h"
 #include <map>
 #include <typeinfo>
@@ -40,7 +39,6 @@ namespace Diff {
 	struct DExprImpl
 	{
 		virtual double EvalV() const = 0;
-		virtual Num EvalVE() const = 0;
 		virtual Expr EvalD(Var const &s) const = 0;
 
 		virtual std::string const & GetTypeName() const = 0;
@@ -64,6 +62,8 @@ namespace Diff {
 
 		uint64_t const fUid;
 
+
+		// reference counting
 	private:
 		mutable int fRef;
 	public:
@@ -72,6 +72,8 @@ namespace Diff {
 			--fRef;
 			if (fRef == 0) delete this;
 		}
+
+		// differential
 	private:
 		mutable std::map<uint64_t, RebindableExpr> fDMem;
 	public:
@@ -79,7 +81,6 @@ namespace Diff {
 
 	private:
 		mutable double fVMem;
-		mutable Num fVEMem;
 	public:
 		mutable bool fVMemValid;
 
@@ -90,14 +91,6 @@ namespace Diff {
 				fVMemValid = true;
 			}
 			return fVMem;
-		}
-
-		Num VEMem() const {
-			if (!fVMemValid) {
-				fVEMem = EvalVE();
-				fVMemValid = true;
-			}
-			return fVEMem;
 		}
 
 		mutable std::vector<DExprImpl const*> fNodesMem;
@@ -116,7 +109,7 @@ namespace Diff {
 
 	};
 
-	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false), fUid(guid++), fVEMem(0, 0, 0)
+	DExprImpl::DExprImpl(ExprType type) : fType(type), fVMemValid(false), fUid(guid++)
 	{
 		fRef = 0;
 		auto it = DCount.find(this);
@@ -193,15 +186,6 @@ namespace Diff {
 		}
 		return fImpl->VMem();
 	};
-
-	Num Expr::VE() const {
-		auto &nodes = fImpl->GetNodesMem();
-		for (auto &p : nodes) {
-			p->fVMemValid = false;
-		}
-		return fImpl->VEMem();
-	};
-
 
 	Expr D(Expr const &expr, Expr const &var) {
 		return expr.fImpl->DMem(CastToVar(var));
@@ -280,16 +264,12 @@ namespace Diff {
 	struct DConstant : DExprImpl
 	{
 		double const fV;
-		Num const fVE;
+		double const fE;
 
-		DConstant(double v) : DExprImpl(ExprType::Const), fV(v), fVE(v, 0, 0) { }
+		DConstant(double v, double e = 0) : DExprImpl(ExprType::Const), fV(v), fE(e) { }
 
 		double EvalV() const override {
 			return fV;
-		}
-
-		Num EvalVE() const override {
-			return fVE;
 		}
 
 
@@ -299,6 +279,7 @@ namespace Diff {
 
 		void GetParameters(ParameterVector &v) const override {
 			v.push_back(fV);
+			v.push_back(fE);
 		}
 
 		void GetSubExpressions(SubExpressionVector &) const override {
@@ -367,22 +348,21 @@ namespace Diff {
 	std::string varName = "Variable";
 	struct DVariableImpl : DExprImpl
 	{
-		Num fVE;
 		double fV;
+		double fE;
 		std::string const fName;
-		DVariableImpl(double v) : DVariableImpl(std::string(), v) { }
+		DVariableImpl(double v, double e = 0) : DVariableImpl(std::string(), v, e) { }
 
-		DVariableImpl(std::string const &name, double v) : DExprImpl(ExprType::Variable),
-			fV(v), fVE(v, 0, 0), fName(name) { }
+		DVariableImpl(std::string const &name, double v, double e = 0) : DExprImpl(ExprType::Variable),
+			fV(v), fE(e), fName(name) { }
 
-		void SetV(double v) {
+		void SetV(double v, double e = 0) {
 			fV = v;
-			fVE = Num(v, 0, 0);
+			fE = e;
 		}
 
 
 		double EvalV() const override { return fV; }
-		Num EvalVE() const override { return fVE; }
 
 		Expr EvalD(Var const &s) const override {
 			if (s.fImpl == this) {
@@ -393,6 +373,10 @@ namespace Diff {
 		}
 
 		void GetSubExpressions(SubExpressionVector &) const override {
+		}
+
+		void GetParameters(ParameterVector &pars) const {
+			pars.push_back(fV);
 		}
 
 		std::string const &GetTypeName() const {
@@ -512,10 +496,6 @@ namespace Diff {
 			return std::log(f1.fImpl->VMem());
 		}
 
-		Num EvalVE() const override {
-			return log(f1.fImpl->VEMem());
-		}
-
 		std::string const & GetTypeName() const {
 			return DlogName;
 		}
@@ -541,11 +521,6 @@ namespace Diff {
 		double EvalV() const override
 		{
 			return std::tan(f1.fImpl->VMem());
-		}
-
-		Num EvalVE() const override
-		{
-			return tan(f1.fImpl->VEMem());
 		}
 
 		std::string const & GetTypeName() const
@@ -594,10 +569,6 @@ namespace Diff {
 			return std::pow(f1.fImpl->VMem(), fN);
 		}
 
-		Num EvalVE() const override {
-			return pow(f1.fImpl->VEMem(), fN);
-		}
-
 
 		Expr EvalD(Var const &s) const override {
 			if (fN == 0) return Zero();
@@ -625,10 +596,6 @@ namespace Diff {
 
 		double EvalV() const override {
 			return std::exp(f1.fImpl->VMem());
-		}
-
-		Num EvalVE() const override {
-			return exp(f1.fImpl->VEMem());
 		}
 
 		std::string const & GetTypeName() const {
@@ -661,10 +628,6 @@ namespace Diff {
 			return std::sin(f1.fImpl->VMem());
 		}
 
-		Num EvalVE() const override {
-			return sin(f1.fImpl->VEMem());
-		}
-
 		std::string const & GetTypeName() const {
 			return DsinName;
 		}
@@ -691,10 +654,6 @@ namespace Diff {
 
 		double EvalV() const override {
 			return std::cos(f1.fImpl->VMem());
-		}
-
-		Num EvalVE() const override {
-			return cos(f1.fImpl->VEMem());
 		}
 
 		std::string const & GetTypeName() const {
@@ -729,10 +688,6 @@ namespace Diff {
 			return DsinhName;
 		}
 
-		Num EvalVE() const override {
-			return sinh(f1.fImpl->VEMem());
-		}
-
 		Expr EvalD(Var const &s) const override
 		{
 			return D(f1, s)*cosh(f1);
@@ -754,10 +709,6 @@ namespace Diff {
 
 		double EvalV() const override {
 			return std::cosh(f1.fImpl->VMem());
-		}
-
-		Num EvalVE() const override {
-			return cosh(f1.fImpl->VEMem());
 		}
 
 		std::string const & GetTypeName() const {
@@ -819,10 +770,6 @@ namespace Diff {
 			return f1.fImpl->VMem() + f2.fImpl->VMem();
 		}
 
-		Num EvalVE() const override {
-			return f1.fImpl->VEMem() + f2.fImpl->VEMem();
-		}
-
 
 		Expr EvalD(Var const &s) const override {
 			return D(f1, s) + D(f2, s);
@@ -849,11 +796,6 @@ namespace Diff {
 		double EvalV() const override {
 			return f1.fImpl->VMem() - f2.fImpl->VMem();
 		}
-
-		Num EvalVE() const override {
-			return f1.fImpl->VEMem() - f2.fImpl->VEMem();
-		}
-
 
 		Expr EvalD(Var const &s) const override {
 			return D(f1, s) - D(f2, s);
@@ -887,10 +829,6 @@ namespace Diff {
 
 		double EvalV() const override {
 			return f1.fImpl->VMem() * f2.fImpl->VMem();
-		}
-
-		Num EvalVE() const override {
-			return f1.fImpl->VEMem() * f2.fImpl->VEMem();
 		}
 
 
@@ -929,12 +867,6 @@ namespace Diff {
 		double EvalV() const override {
 			return f1.fImpl->VMem() / f2.fImpl->VMem();
 		}
-
-
-		Num EvalVE() const override {
-			return f1.fImpl->VEMem() / f2.fImpl->VEMem();
-		}
-
 
 		Expr EvalD(Var const &s) const override {
 			return D(f1, s) / f2 - f1 * D(f2, s) * pow(f2, -2);
@@ -996,15 +928,6 @@ namespace Diff {
 				fX.SetV(x);
 				return fY.V();
 			}, fX0.fImpl->VMem(), fX1.fImpl->VMem());
-		}
-
-
-		Num EvalVE() const override {
-			double v = GaussLegendre64Points([&](double x) {
-				fX.SetV(x);
-				return fY.V();
-			}, fX0.fImpl->VMem(), fX1.fImpl->VMem());
-			return Num(v, 0, 0);
 		}
 
 		Expr EvalD(Var const &s) const override
@@ -1088,16 +1011,6 @@ namespace Diff {
 			return s;
 		}
 
-
-		Num EvalVE() const override {
-			Num s(0, 0, 0);
-			for (double i = fFirst; i <= fLast; i += fInc) {
-				fI.SetV(i);
-				s = s + fExpr.VE();
-			}
-			return s;
-		}
-
 		Expr EvalD(Var const &s) const
 		{
 			return Sum(D(fExpr, s), fI, fFirst, fLast, fInc);
@@ -1145,7 +1058,6 @@ namespace Diff {
 			return gl_w_64points[idx];
 		}
 
-		Num EvalVE() const override { throw std::logic_error("not implemented"); }
 		Expr EvalD(Var const &s) const override {
 			if (s.Uid() == fIndex.Uid()) {
 				throw std::logic_error("not implemented");
@@ -1190,7 +1102,6 @@ namespace Diff {
 			}
 		}
 
-		Num EvalVE() const override { throw std::logic_error("not implemented"); }
 		Expr EvalD(Var const &s) const override {
 			if (s.Uid() == fIndex.Uid()) {
 				throw std::logic_error("not implemented");

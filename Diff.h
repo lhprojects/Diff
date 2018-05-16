@@ -15,7 +15,6 @@
 namespace Diff {
 
 	struct Expr;
-	struct Num;
 	struct DExprImpl;
 	struct DConstant;
 	struct DVariableImpl;
@@ -41,7 +40,6 @@ namespace Diff {
 		bool Empty() const { return fImpl == nullptr; }
 		// evaluate the value
 		double V() const;
-		Num VE() const;
 
 		Expr D(Expr const &var) const;
 
@@ -218,4 +216,7 @@ namespace Diff {
 	Expr ReplaceVariable(Expr const &in_what, Expr const &to_be_replaced, ExprOrDouble const &replaced_by);
 	Expr ReplaceVariable(Expr const &in_what, std::pair<Expr, ExprOrDouble> const &);
 
+	Num VE(ExprOrDouble const &expr);
+
+	Expr D(ExprOrDouble const &expr);
 }

@@ -34,14 +34,14 @@ void test_V() {
 		TEST_SAME((three / three).V(), 1);
 		TEST_SAME(log(three).V(), log(3));
 
-		TEST_SAME(three.VE().V(), 3);
-		TEST_SAME((three * three).VE().V(), 9);
-		TEST_SAME((three + three).VE().V(), 6);
-		TEST_SAME((three - three).VE().V(), 0);
-		TEST_SAME((three / three).VE().V(), 1);
-		TEST_SAME(log(three).VE().V(), log(3));
+		TEST_SAME(VE(three).V(), 3);
+		TEST_SAME(VE(three * three).V(), 9);
+		TEST_SAME(VE(three + three).V(), 6);
+		TEST_SAME(VE(three - three).V(), 0);
+		TEST_SAME(VE(three / three).V(), 1);
+		TEST_SAME(VE(log(three)).V(), log(3));
 
-		printf("log(3) %e", log(three).VE().E1());
+		printf("log(3) %e", VE(log(three)).E1());
 	}
 
 }
@@ -435,7 +435,7 @@ void test_for() {
 		// test fixvariable
 		TEST_SAME(f.X_Ws0.at(2).V(), ypp);
 		TEST_SAME(f.X_Ws.at(2).V(), ypp);
-		TEST_SAME(f.X_Ws.at(2).VE().V(), f.X_Ws.at(2).V());
+		TEST_SAME(VE(f.X_Ws.at(2)).V(), f.X_Ws.at(2).V());
 
 		TEST_SAME(f.X_Ws0.at(2).V(), f.X_Ws.at(2).V());
 		TEST_SAME(f.X_Ws0.at(3).V(), f.X_Ws.at(3).V());
@@ -443,7 +443,7 @@ void test_for() {
 
 		for (int i = 0; i < 7; ++i) {
 			printf("d%d %+e +- %e +- %e\n", i, 
-				f.X_Ws.at(i).VE().V(), f.X_Ws.at(i).VE().E1(), f.X_Ws.at(i).VE().SqrtE2());
+				VE(f.X_Ws.at(i)).V(), VE(f.X_Ws.at(i)).E1(), VE(f.X_Ws.at(i)).SqrtE2());
 		}
 
 		printf("nodes %d\n", (int)f.X_Ws.at(6).Nodes());
@@ -650,7 +650,7 @@ void test_code()
 				
 				for (int j = 0; j < Njj; ++j) {
 					f.costheta.SetV(theta);
-					sum += f.X_Ws.at(i).VE().V();
+					sum += VE(f.X_Ws.at(i)).V();
 					theta += delta;
 				}
 				auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
