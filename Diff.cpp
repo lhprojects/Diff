@@ -297,7 +297,7 @@ namespace Diff {
 		void ToString(std::string & sb) const override
 		{
 			char b[100];
-			sprintf(b, "%f", fV);
+			sprintf(b, "%g", fV);
 			sb.append(b);
 		}
 
@@ -580,11 +580,17 @@ namespace Diff {
 		void ToString(std::string & sb) const override
 		{
 			if (fabs(fN - 1) <= 0.000001) {
-				printf("%.20f", fN);
+				printf("%.18f", fN);
 			}
-			sb.append("(");
-			f1.fImpl->ToString(sb);
-			sb.append(")^(").append(ToStr(fN)).append(")");
+			if (f1.fImpl->IsConst() || f1.fImpl->IsVariable()) {
+				f1.fImpl->ToString(sb);
+			} else {
+				sb.append("(");
+				f1.fImpl->ToString(sb);
+				sb.append(")");
+			}
+			sb.append("^");
+			sb.append(ToStr(fN));
 		}
 
 	};
