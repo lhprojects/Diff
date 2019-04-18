@@ -38,6 +38,7 @@ namespace Diff {
 
 	struct DExprImpl
 	{
+		/* Evaluate the value */
 		virtual double EvalV() const = 0;
 		virtual Expr EvalD(Var const &s) const = 0;
 
@@ -84,6 +85,7 @@ namespace Diff {
 	public:
 		mutable bool fVMemValid;
 
+		/* Get the value, re-evaluate if non-valid */
 		double VMem() const
 		{
 			if (!fVMemValid) {
@@ -94,6 +96,7 @@ namespace Diff {
 		}
 
 		mutable std::vector<DExprImpl const*> fNodesMem;
+		// Get the nodes list
 		std::vector<DExprImpl const*> const & GetNodesMem() const {
 			if (fNodesMem.size() == 0) {
 				std::set<DExprImpl const *> nodes;
@@ -180,6 +183,8 @@ namespace Diff {
 	}
 
 	double Expr::V() const {
+		// invliad all nodes
+		// we just don't know if the variable changed
 		auto &nodes = fImpl->GetNodesMem();
 		for (auto &p : nodes) {
 			p->fVMemValid = false;
