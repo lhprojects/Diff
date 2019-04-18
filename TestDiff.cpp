@@ -14,14 +14,20 @@ using namespace Diff;
 //#define TEST_CCODE
 
 
-#define TPrintf printf
+#define TPrintf(...) { printf("%s: ", __func__); printf(##__VA_ARGS__); }
+
 const double PI = 3.1415926535897932384626433;
 
 static int n_total = 0;
 static int n_failed = 0;
 #define TEST_SAME(x, y) do { n_total++; double x_ = (x); double y_ = (y);\
-	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x " (%f) == " #y " (%f)\n", __func__, __LINE__, x_, y_); }   } while(0)
-#define TEST_TRUE(x) do { n_total++; double x_ = (x); if(!x_)  { n_failed++; TPrintf("FAILED: %s: %3d:"  #x "\n", __func__, __LINE__);}   } while(0)
+	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; printf("%s: %3d: FAILED: "  #x " (%f) == " #y " (%f)\n", __func__, __LINE__, x_, y_); }\
+    else { printf("%s: %3d: SUCCESS: "  #x " (%g) == " #y " (%g)\n", __func__, __LINE__, x_, y_); }\
+   } while(0)
+
+#define TEST_TRUE(x) do { n_total++; double x_ = (x); if(!x_)  { n_failed++; printf("%s: %3d: FAILED: "  #x "\n", __func__, __LINE__);}\
+	else { printf("%s: %3d: SUCCESS: "  #x "\n", __func__, __LINE__); }\
+	} while (0)
 
 void test_V() {
 
@@ -41,7 +47,7 @@ void test_V() {
 		TEST_SAME(VE(three / three).V(), 1);
 		TEST_SAME(VE(log(three)).V(), log(3));
 
-		printf("log(3) %e", VE(log(three)).E1());
+		printf("Up bound of Error of log(3): %e", VE(log(three)).E1());
 	}
 
 }
@@ -151,30 +157,30 @@ void test_Diff() {
 		TPrintf("x-x          : %s\n", (x - x).ToString().c_str());
 		TPrintf("x*x          : %s\n", (x * x).ToString().c_str());
 		TPrintf("x/x          : %s\n", (x / x).ToString().c_str());
-		TPrintf("x+1+x          : %s\n", (x + 1 + x).ToString().c_str());
-		TPrintf("x+1-x          : %s\n", (x + 1 - x).ToString().c_str());
-		TPrintf("x+1*x          : %s\n", (x + 1 * x).ToString().c_str());
-		TPrintf("x*1/x          : %s\n", (x * 1 / x).ToString().c_str());
+		TPrintf("x+1+x        : %s\n", (x + 1 + x).ToString().c_str());
+		TPrintf("x+1-x        : %s\n", (x + 1 - x).ToString().c_str());
+		TPrintf("x+1*x        : %s\n", (x + 1 * x).ToString().c_str());
+		TPrintf("x*1/x        : %s\n", (x * 1 / x).ToString().c_str());
 
 		TPrintf("x^2          : %s\n", POW2(x).ToString().c_str());
 		TPrintf("x^2'         : %s\n", POW2(x).D(x).ToString().c_str());
 		TPrintf("x^2''        : %s\n", POW2(x).D(x).D(x).ToString().c_str());
-		TPrintf("x^2'''        : %s\n", POW2(x).D(x).D(x).D(x).ToString().c_str());
+		TPrintf("x^2'''       : %s\n", POW2(x).D(x).D(x).D(x).ToString().c_str());
 
-		TPrintf("x^2          : %s\n", (x*x).ToString().c_str());
-		TPrintf("x^2'         : %s\n", (x*x).D(x).ToString().c_str());
-		TPrintf("x^2''        : %s\n", (x*x).D(x).D(x).ToString().c_str());
-		TPrintf("x^2'''        : %s\n", (x*x).D(x).D(x).D(x).ToString().c_str());
+		TPrintf("x*x          : %s\n", (x*x).ToString().c_str());
+		TPrintf("x*x'         : %s\n", (x*x).D(x).ToString().c_str());
+		TPrintf("x*x''        : %s\n", (x*x).D(x).D(x).ToString().c_str());
+		TPrintf("x*x'''       : %s\n", (x*x).D(x).D(x).D(x).ToString().c_str());
 
-		TPrintf("sqrt(x)          : %s\n", sqrt(x).ToString().c_str());
-		TPrintf("sqrt(x)'         : %s\n", sqrt(x).D(x).ToString().c_str());
-		TPrintf("sqrt(x)''        : %s\n", sqrt(x).D(x).D(x).ToString().c_str());
-		TPrintf("sqrt(x)'''       : %s\n", sqrt(x).D(x).D(x).D(x).ToString().c_str());
-		TPrintf("sqrt(x)''''      : %s\n", sqrt(x).D(x).D(x).D(x).D(x).ToString().c_str());
+		TPrintf("sqrt(x)      : %s x^0.5\n", sqrt(x).ToString().c_str());
+		TPrintf("sqrt(x)'     : %s 0.5^-0.5\n", sqrt(x).D(x).ToString().c_str());
+		TPrintf("sqrt(x)''    : %s -0.25*x^-1.5\n", sqrt(x).D(x).D(x).ToString().c_str());
+		TPrintf("sqrt(x)'''   : %s 0.375*x^-2.5\n", sqrt(x).D(x).D(x).D(x).ToString().c_str());
+		TPrintf("sqrt(x)''''  : %s -0.9375*x^-3.5\n", sqrt(x).D(x).D(x).D(x).D(x).ToString().c_str());
 
 		TPrintf("x+x          : %s\n", (x + x).ToString().c_str());
-		TPrintf("x/sqrt(1+x)          : %s\n", (x / sqrt(1 + x)).ToString().c_str());
-		TPrintf("x/sqrt(1+x)'         : %s\n", (x / sqrt(1 + x)).D(x).ToString().c_str());
+		TPrintf("x/sqrt(1+x)  : %s\n", (x / sqrt(1 + x)).ToString().c_str());
+		TPrintf("x/sqrt(1+x)' : %s\n", (x / sqrt(1 + x)).D(x).ToString().c_str());
 	}
 
 	for (auto p : DCount) {
@@ -202,7 +208,7 @@ void test_constant_fold()
 }
 
 
-void fix_var() {
+void replace_var_with_const_should_triger_fold() {
 
 	{
 		Const mass = 1;
@@ -211,14 +217,14 @@ void fix_var() {
 
 		auto energy_vars = energy.GetVariablesList();
 		for (auto &v : energy_vars) {
-			printf("var in energy %s\n", v.GetName().c_str());
+			TPrintf("var in energy %s\n", v.GetName().c_str());
 		}
 		TEST_TRUE(energy_vars.size() == 1);
 
 		Expr e = ReplaceVariable(energy, {p, 1});
 		auto e_vars = e.GetVariablesList();
 		for (auto &v : e_vars) {
-			printf("var in energy %s\n", v.GetName().c_str());
+			TPrintf("var in energy %s\n", v.GetName().c_str());
 		}
 		TEST_TRUE(e_vars.size() == 0);
 
@@ -316,6 +322,7 @@ struct Formula {
 	std::vector<Expr> X_Ss0;
 	std::vector<Expr> X_Ws0;
 
+	// n = order
 	void Init(int n)
 	{
 		for (; (int)X_Is.size() <= n; ) {
@@ -446,12 +453,12 @@ void test_for() {
 				VE(f.X_Ws.at(i)).V(), VE(f.X_Ws.at(i)).E1(), VE(f.X_Ws.at(i)).SqrtE2());
 		}
 
-		printf("nodes %d\n", (int)f.X_Ws.at(6).Nodes());
-		printf("nodes %d\n", (int)f.X_Ss.at(6).Nodes());
-		printf("nodes %d\n", (int)f.X_Is.at(6).Nodes());
-		printf("nodes %d\n", (int)f.X_Ws.at(0).Nodes());
-		printf("nodes %d\n", (int)f.X_Ss.at(0).Nodes());
-		printf("nodes %d\n", (int)f.X_Is.at(0).Nodes());
+		printf("X_Ws d6 nodes %d\n", (int)f.X_Ws.at(6).Nodes());
+		printf("X_Ss d6 nodes %d\n", (int)f.X_Ss.at(6).Nodes());
+		printf("X_Ws d6 nodes %d\n", (int)f.X_Is.at(6).Nodes());
+		printf("X_Ws d0 nodes %d\n", (int)f.X_Ws.at(0).Nodes());
+		printf("X_Ss d0 nodes %d\n", (int)f.X_Ss.at(0).Nodes());
+		printf("X_Is d0 nodes %d\n", (int)f.X_Is.at(0).Nodes());
 
 	}
 
@@ -462,38 +469,39 @@ void test_for() {
 
 }
 
-void testfunc() {
+void test_Func1() {
 	Var x("x", 0);
 	Func1 f(1 + x, x);
 	TEST_SAME(f(1), 2);
 }
 
-void test_int() {
+void test_Integrate() {
 
 	{ // basic test
 		Var x = 0;
 		TEST_SAME(Integrate(x*x, { x, 0, 1 }).V(), 1. / 3);
 		TEST_SAME(GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).V(), 1. / 3);
-		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x*x, { x, 0, 1 }).V() - 1 / 3.0);
-		printf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).V() - 1 / 3.0);
-		printf("Integrate(x, 0, 1, x*x)    : %s\n", GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).ToString().c_str());
+		TPrintf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", Integrate(x*x, { x, 0, 1 }).V() - 1 / 3.0);
+		TPrintf("Integrate(x, 0, 1, x*x)-1/3: %.20f\n", GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).V() - 1 / 3.0);
+
+		TPrintf("Integrate(x, 0, 1, x*x)    : internal expression: %s\n", GaussLegendre64PointsIntegrate(x*x, { x, 0, 1 }).ToString().c_str());
 
 		TEST_SAME(Integrate(exp(-x), { x, 0, 1 }).V(), 1 - exp(-1));
-		printf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(exp(-x), { x, 0, 1 }).V() - (1 - exp(-1)));
+		TPrintf("Integrate(x, 0, 1, exp(-x))-(1 - e^-1): %+ef\n", Integrate(exp(-x), { x, 0, 1 }).V() - (1 - exp(-1)));
 		TEST_SAME(Integrate(exp(x), { x, 0, 1 }).V(), exp(1) - 1);
-		printf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(exp(x), { x, 0, 1 }).V() - (exp(1) - 1));
+		TPrintf("Integrate(x, 0, 1, exp(x))-(e^-1): %+ef\n", Integrate(exp(x), { x, 0, 1 }).V() - (exp(1) - 1));
 		TEST_SAME(Integrate(sin(x), { x, 0, PI }).V(), 2);
 	}
 
 	{ // test for large range
 		Var x = 0;
-		printf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, PI }).V() - 2);
-		printf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 3 * PI }).V() - 2);
-		printf("Integrate(x, 0,  9PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 9 * PI }).V() - 2);
-		printf("Integrate(x, 0, 17PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 17 * PI }).V() - 2);
-		printf("Integrate(x, 0, 33PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 33 * PI }).V() - 2);
-		printf("Integrate(x, 0, 65PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 65 * PI }).V() - 2);
-		printf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 129 * PI }).V() - 2);
+		TPrintf("Integrate(x, 0,   PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, PI }).V() - 2);
+		TPrintf("Integrate(x, 0,  3PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 3 * PI }).V() - 2);
+		TPrintf("Integrate(x, 0,  9PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 9 * PI }).V() - 2);
+		TPrintf("Integrate(x, 0, 17PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 17 * PI }).V() - 2);
+		TPrintf("Integrate(x, 0, 33PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 33 * PI }).V() - 2);
+		TPrintf("Integrate(x, 0, 65PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 65 * PI }).V() - 2);
+		TPrintf("Integrate(x, 0,129PI, sin(x))-2: %+e\n", Integrate(sin(x), { x, 0, 129 * PI }).V() - 2);
 	}
 
 	{ // precision
@@ -664,7 +672,7 @@ void test_code()
 
 }
 
-void test_num() {
+void test_num_basic() {
 
 	{
 		Num x1(1, 0.001, 1E-4);
@@ -698,11 +706,16 @@ void test_num() {
 		Num x2(2, 0.001, 1E-4);
 		Num x = x1 / x2;
 		TEST_SAME(x.V(), 1);
-		TEST_SAME(x.E1(), 0.001/2 + 0.001*2/4);
+		TEST_SAME(x.E1(), 0.001 / 2 + 0.001 * 2 / 4);
 		TEST_SAME(x.E2(), 1E-4 / 4 + 1E-4 / 4);
 
 	}
 
+}
+
+void test_num_err_dist() {
+
+	printf("test Num error distribution\n");
 	{
 		std::mt19937 mt;
 		std::uniform_real_distribution<double> u;
@@ -900,23 +913,35 @@ void test_quad() {
 
 void test_sum() {
 
-	Var x = 0;
+	Var x("x", 0);
 	TEST_SAME(Sum(x, { x, 0, 10, 1 }).V(), 11 * 5);
 	TEST_SAME(Sum(x, { x, 0, 10 }).V(), 11 * 5);
+	TPrintf("internal expression: %s\n", Sum(x, { x, 0, 10, 1}).ToString().c_str());
 }
 
+void test_reference_cout() {
+	TEST_TRUE(DCount.size() == 0);
+}
 int main()
 {
-	TEST_TRUE(DCount.size() == 0);
-	test_num();
-	test_V();
-	test_Diff();
+	test_reference_cout();
+
+	test_num_basic();
+	test_num_err_dist();
+
 	test_constant_fold();
-	fix_var();
-	testfunc();
-	test_quad();
-	test_int();
+	test_V();
+
+	test_Diff();
+
+	replace_var_with_const_should_triger_fold();
+
+	test_Func1();
+
 	test_sum();
+	test_quad();
+	test_Integrate();
+
 	test_for();
 	test_code();
 	
