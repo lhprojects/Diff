@@ -5,13 +5,17 @@
 
 namespace Diff {
 
+	/* Num class is like double, but can trace the calculation error */
 	struct Num {
 
 		Num(double v, double e1, double e2) { fE1 = e1; fV = v; fE2 = e2; }
 		Num & operator=(Num const &) = default;
 		double V() const { return fV; }
+		/* up bound of error */
 		double E1() const { return fE1; }
+		/* squre of error, sqrt of this is more near by the real error */
 		double E2() const { return fE2; }
+		/* the rms of error */
 		double SqrtE2() const { return std::sqrt(fE2); }
 	private:
 		double fV;
