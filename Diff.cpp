@@ -1072,7 +1072,9 @@ namespace Diff {
 		}
 		
 		void ToString(std::string &sb) const override {
-			sb.append("gl_w[i]");
+			sb.append("gl64_w[");
+			fIndex.fImpl->ToString(sb);
+			sb.append("]");
 		}
 		
 	};
@@ -1115,7 +1117,9 @@ namespace Diff {
 			return Const(0);
 		}
 		void ToString(std::string &sb) const override {
-			sb.append("gl_xi[i]");
+			sb.append("gl64_x[");
+			fIndex.fImpl->ToString(sb);
+			sb.append("]");
 		}
 
 	};
@@ -1303,7 +1307,7 @@ namespace Diff {
 	Expr GaussLegendre64PointsIntegrate(ExprOrDouble const &y, Expr const &x_, ExprOrDouble const &from, ExprOrDouble const &to)
 	{
 		Var original_x = CastToVar(x_);
-		Var i = 0;
+		Var i("i", 0);
 		Expr xi = *new GL64Ximpl(i);
 		Expr x = 0.5*(1 - xi)*from + 0.5*(1 + xi)*to;
 		Expr w = *new GL64Weightmpl(i);
