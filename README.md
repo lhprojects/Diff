@@ -18,11 +18,11 @@ printf("%f", dkx2_dx.V()); // -> 16
 
 ## Basic Concept
 
-The main classes in Diff are
-* `Expr`，a handler of a `General` expression.
-* `Var`，a handler of `Variable` expression. `Variable` expression `is a` `General` expression, and `Var` `is a` `Expr`.
-* `Const`, a handler of `Constant` object. `Constant` expression `is a` `General` expression, and `Const` `is a` `Expr`.
-* `ExprOrDoube`, a handler of `General` expression. `ExprOrDoube` is an `Expr`. `ExprOrDoube` has additional constructors.
+The main public classes in Diff are
+* `Expr`，a handler of a `General expression`.
+* `Var`，a handler of `Variable`. `Variable` `is a` `General expression`.
+* `Const`, a handler of `Constant`. `Constant` `is a` `General expression`.
+* `ExprOrDoube`, a handler of `General expression`. The class `ExprOrDoube` has additional constructor that construct a `Constant` from `double`. It is convenient to use `ExprOrDouble` as argument type of a function.
 
 For examples:
 ```
@@ -37,29 +37,27 @@ Var v3;
 // Ok. You can change the value of a `Variable`.
 v.SetV(1)
 
-// create a `Constant` expression, and `c` is the handler of this expression.
+// create a `Constant expression`, and `c` is the handler of this expression.
 Const c = 0;
-// `c2` is a handler of the expression that `c` handles.
-Const c2 = 0;
 // Error. You can't change the value of a `Constant`.
 // c.SetV(1)
 
-// `Expr` is a handler of `General` expression.
+// `Expr` is a handler of `General expression`.
 Expr ev = v;
 Expr ec = c;
 
-// ExprOrDouble is has a constructor that takes a `double`.
-// This constructor will create a `Const` epxression,
-// and this handler will handle the `Const` expression
+// ExprOrDouble has a constructor that takes a `double`.
+// This constructor will create a `Constant epxression`,
+// and this handler will handle the `Constant expression`.
 void foo(ExprOrDouble x);
 Var w = 0;
-// OK.
+// OK. x is the handler of `Constant`.
 foo(1);
-// OK.
+// OK. x binds with the object that w binds.
 foo(w);
 ```
 
-## Get More Types of Expressions
+## Get More Expressions
 
 You can make more types of expressions using operators or functions. For examples: 
 ```
@@ -68,10 +66,10 @@ using namespace Diff;
 // `x` is a handler of `Variable`.
 Var x = 0;
 
-// `x_plus_x` is a `Add` expression, `And` expression `is a` `General` expression.
+// `x_plus_x` is a `Add expression`, `And expression` `is a` `General expression`.
 Expr x_plus_x = x + x;
 
-// `exp_x` is a `Exp` expression, `Exp` expression `is a` `General` expression.
+// `exp_x` is a `Exp expression`, `Exp expression` `is a` `General expression`.
 Expr exp_x = exp(x);
 ```
 
@@ -90,7 +88,7 @@ exp
 log
 pow(expr, double)
 ```
-## Evaluation
+## An Expression is a Tree
 Any expression is tree of expressions. For example:
 ```
 Var x = 1;
@@ -104,16 +102,15 @@ Expr w = x * y + z;
 //       x     y
 w.V()
 ```
-The evaluation is performed at the time of invoking the `.V()`.
 
 ## Functional Programming
 
-* Very `Expr` instance is a handler of immutable expression, or in c++ terms, a pointer to a const object. The structure of the tree can't be changed. 
-* `Expr`, `Const`, `Var`, `ExprOrDouble` are immutable handlers. It means they can't rebind the other expressions after they are initialized.
+* Every `Expr` instance is a handler of a immutable expressions tree, or in c++ terms, a pointer to a constant object. The structure of the tree can't be changed. 
+* Additionally, `Expr`, `Const`, `Var`, `ExprOrDouble` are immutable handlers. It means they can't rebind the other expressions after they are initialized.
 
 
 ## `RebindableExpr`
-`Expr`, `Const`, and `Var` are  `const` handlers. It means they can't rebind the other expressions, after they are intialized. It enforces the functional programming. For example:
+`Expr`, `Const`, and `Var` are immutable handlers. It means they can't rebind the other expressions, after they are intialized. It enforces the functional programming. For example:
 ```
 Var x1 = 1;
 Var x2 = 2;
@@ -133,7 +130,7 @@ Expr z = [&](){
   return w*w;
 }();
 ```
-But functional programming is not very convenient compared to structured programming. So the `RebindableExpr` is provided. `RebindableExpr ` `is a` `Expr`. Relation between of `RebindableExpr` and `Expr` is just like that of `Expression const *` and `Expression const * const`. For exmaple:
+But functional programming is not very convenient compared to structured programming. So the `RebindableExpr` is provided. `RebindableExpr ` `is a` `Expr`. Relation between of `RebindableExpr` and `Expr` is just like that of `Expression const *` and `Expression const * const`. For an exmaple:
 ```
 Var x = ...;
 RebinableExpr z;
@@ -141,8 +138,10 @@ for(int i = 0; i < n; ++i) {
      z = z*x;
 }
 ```
+## Evaluation
+The evaluation is performed at the time of invoking the `.V()`.
 
-## `D`
+## Differential
 The function `D` returns a expression represents the differential. Chain rule is used to create the new expressions tree. Usage example:
 ```
 Var x = 0;
@@ -152,7 +151,7 @@ x.SetV(1);
 d.V() // -> 2
 ```
 
-## `Integrate`
+## Integration
 The function `Integrate` returns a expression represents the definite integral. The Integral is evaluated numerically by 65 points Gauss–Legendre algorithm. Usage exmaple:
 ```
 Var x = 0;
