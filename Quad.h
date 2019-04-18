@@ -1,6 +1,5 @@
 #pragma once
 
-#include <functional>
 
 namespace Diff {
 	extern double const gl_x_16points[8];

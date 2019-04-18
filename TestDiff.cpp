@@ -1,6 +1,4 @@
 #include "Diff.h"
-#include "Func.h"
-#include "Num.h"
 #include "Quad.h"
 
 #include <float.h>
