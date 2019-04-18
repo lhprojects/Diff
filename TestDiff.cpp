@@ -886,7 +886,7 @@ void test_quad() {
 	}
 
 	{
-		TEST_SAME(TanhSinh65Points([](double x1, double x2) { 
+		TEST_SAME(TanhSinh65PointsTwoSidesInput([](double x1, double x2) { 
 			return 1/sqrt(x1*x2); },
 			0, 1), 3.1415926535897932384);
 		TEST_SAME(TanhSinh65Points([](double x) {
@@ -894,8 +894,8 @@ void test_quad() {
 			if (one_minus_x == 0) one_minus_x = 1 - nextafter(1, -1);
 			return 1 / sqrt(x*one_minus_x);
 		}, 0, 1), 3.1415926535897932384);
-		printf("TanhSinh [ 0, 1 ] 1/sqrt(x(1-x)) %+.6e\n", TanhSinh65Points([](double x, double x2) { return 1 / sqrt(x*x2); }, 0, 1) - Pi);
-		printf("TanhSinh [ 0, 1 ] 1/sqrt(x(1-x)) %+.6e\n", TanhSinh65Points([](double x) { 
+		TPrintf("TanhSinh [ 0, 1 ] 1/sqrt(x(1-x)) %+.6e\n", TanhSinh65PointsTwoSidesInput([](double x, double x2) { return 1 / sqrt(x*x2); }, 0, 1) - Pi);
+		TPrintf("TanhSinh [ 0, 1 ] 1/sqrt(x(1-x)) %+.6e\n", TanhSinh65Points([](double x) {
 			double one_minus_x = 1 - x;
 			if (one_minus_x == 0) one_minus_x = 1 - nextafter(1, -1);
 			return 1 / sqrt(x*one_minus_x);
