@@ -201,12 +201,15 @@ namespace Diff {
 
 	struct CCode
 	{
-		std::string Body;
 		struct ExprLess {
 			bool operator()(Expr const &l, Expr const &r) const {
 				return l.Uid() < r.Uid();
 			}
 		};
+		// the c++ expressions
+		std::string Body;
+		// c++ identifier (variable name) of all expression
+		// the c++ identifier of a Variable expresion is just the name of it
 		std::map<Expr, std::string, ExprLess> Names;
 	};
 	CCode ToCCode(Expr const &expr);
