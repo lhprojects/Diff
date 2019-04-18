@@ -14,7 +14,7 @@ using namespace Diff;
 //#define TEST_CCODE
 
 
-#define TPrintf(...) { printf("%s: ", __func__); printf(##__VA_ARGS__); }
+#define TPrintf(fmt, ...) { printf("%s: ", __func__); printf(fmt,##__VA_ARGS__); }
 
 const double PI = 3.1415926535897932384626433;
 
