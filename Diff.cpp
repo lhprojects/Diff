@@ -1134,6 +1134,40 @@ namespace Diff {
 			return Const(s1.fImpl->EvalV()*s2.fImpl->EvalV());
 		} else if (s1.fImpl == s2.fImpl) {
 			return pow(s1, 2);
+		} else if (s1.fImpl->IsConst()) {
+			if (s2.fImpl->GetTypeName() == "mul") {
+				SubExpressionVector subs;
+				s2.fImpl->GetSubExpressions(subs);
+				if (subs.at(0).fImpl->IsConst()) { // merge constant
+					double v = subs.at(0).fImpl->EvalV()*s1.fImpl->EvalV();
+					return *new DMul(Const(v), subs.at(1));
+				}
+			}
+		} else if (s2.fImpl->IsConst()) {
+			if (s1.fImpl->GetTypeName() == "mul") {
+				SubExpressionVector subs;
+				s1.fImpl->GetSubExpressions(subs);
+				if (subs.at(0).fImpl->IsConst()) { // merge constant
+					double v = subs.at(0).fImpl->EvalV()*s2.fImpl->EvalV();
+					return *new DMul(Const(v), subs.at(1));
+				}
+			}
+		} else if(s2.fImpl->GetTypeName() == "mul"){
+			SubExpressionVector subs;
+			s2.fImpl->GetSubExpressions(subs);
+			if (subs.at(0).fImpl->IsConst()) {
+				return subs.at(0) * (s1 * subs.at(1));
+			} else if (subs.at(1).fImpl->IsConst()) {
+				return subs.at(1) * (s1 * subs.at(0));
+			}
+		} else if (s1.fImpl->GetTypeName() == "mul") {
+			SubExpressionVector subs;
+			s1.fImpl->GetSubExpressions(subs);
+			if (subs.at(0).fImpl->IsConst()) {
+				return subs.at(0) * (subs.at(1) * s2);
+			} else if (subs.at(1).fImpl->IsConst()) {
+				return subs.at(1) * (subs.at(0) * s2);
+			}
 		}
 		return *new DMul(s1, s2);
 	}
