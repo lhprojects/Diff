@@ -21,7 +21,7 @@ const double PI = 3.1415926535897932384626433;
 static int n_total = 0;
 static int n_failed = 0;
 #define TEST_SAME(x, y) do { n_total++; double x_ = (x); double y_ = (y);\
-	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; printf("%s: %3d: FAILED: "  #x " (%f) == " #y " (%f)\n", __func__, __LINE__, x_, y_); }\
+	if(isnan(x_) || fabs(x_ - y_) > abs(y_)*1E-3)  { n_failed++; printf("%s: %3d: FAILED: "  #x " (%g) == " #y " (%g)\n", __func__, __LINE__, x_, y_); }\
     else { printf("%s: %3d: SUCCESS: "  #x " (%g) == " #y " (%g)\n", __func__, __LINE__, x_, y_); }\
    } while(0)
 
