@@ -218,5 +218,4 @@ namespace Diff {
 
 	Num VE(ExprOrDouble const &expr);
 
-	Expr D(ExprOrDouble const &expr);
 }
