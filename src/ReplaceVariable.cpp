@@ -8,7 +8,17 @@ namespace Diff {
 		Var fVar;
 		Expr fBy;
 		std::map<uint64_t, RebindableExpr> fMemory;
+		std::map<std::string, Expr(*)(Expr const &)> fUnitary;
+
 		RVWorker(Var const &var, Expr const &by) : fVar(var), fBy(by) {
+			// implementation simplification is the first priority
+			fUnitary["sin"] = Diff::sin;
+			fUnitary["cos"] = Diff::cos;
+			fUnitary["exp"] = Diff::exp;
+			fUnitary["sinh"] = Diff::sinh;
+			fUnitary["cosh"] = Diff::cosh;
+			fUnitary["log"] = Diff::log;
+			fUnitary["tan"] = Diff::tan;
 		}
 
 		Expr replace(Expr const &what)
@@ -17,6 +27,7 @@ namespace Diff {
 			if (!p.Empty()) return p;
 			std::string const &name = what.GetTypeName();
 			SubExpressionVector subs;
+			std::map<std::string, Expr(*)(Expr const &)>::iterator uiter;
 			if (name == "Constant") {
 				p = what;
 			} else if (name == "Variable") {
@@ -25,61 +36,13 @@ namespace Diff {
 				} else {
 					p = what;
 				}
-			} else if (name == "sin") {
+			} else if ((uiter = fUnitary.find(name)) != fUnitary.end()) {
 				what.GetSubExpressions(subs);
 				auto new_sub0 = replace(subs.at(0));
 				if (subs[0].Uid() == new_sub0.Uid()) {
 					p = what;
 				} else {
-					p = sin(new_sub0);
-				}
-			} else if (name == "cos") {
-				what.GetSubExpressions(subs);
-				auto new_sub0 = replace(subs.at(0));
-				if (subs[0].Uid() == new_sub0.Uid()) {
-					p = what;
-				} else {
-					p = cos(new_sub0);
-				}
-			} else if (name == "exp") {
-				what.GetSubExpressions(subs);
-				auto new_sub0 = replace(subs.at(0));
-				if (subs[0].Uid() == new_sub0.Uid()) {
-					p = what;
-				} else {
-					p = exp(new_sub0);
-				}
-			} else if (name == "sinh") {
-				what.GetSubExpressions(subs);
-				auto new_sub0 = replace(subs.at(0));
-				if (subs[0].Uid() == new_sub0.Uid()) {
-					p = what;
-				} else {
-					p = sinh(new_sub0);
-				}
-			} else if (name == "cosh") {
-				what.GetSubExpressions(subs);
-				auto new_sub0 = replace(subs.at(0));
-				if (subs[0].Uid() == new_sub0.Uid()) {
-					p = what;
-				} else {
-					p = cosh(new_sub0);
-				}
-			} else if (name == "log") {
-				what.GetSubExpressions(subs);
-				auto new_sub0 = replace(subs.at(0));
-				if (subs[0].Uid() == new_sub0.Uid()) {
-					p = what;
-				} else {
-					p = log(new_sub0);
-				}
-			} else if (name == "tan") {
-				what.GetSubExpressions(subs);
-				auto new_sub0 = replace(subs.at(0));
-				if (subs[0].Uid() == new_sub0.Uid()) {
-					p = what;
-				} else {
-					p = tan(new_sub0);
+					p = (uiter->second)(new_sub0);
 				}
 			} else if (name == "pow") {
 				what.GetSubExpressions(subs);

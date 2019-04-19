@@ -27,6 +27,15 @@ static int n_failed = 0;
 	else { printf("%s: %3d: SUCCESS: "  #x "\n", __func__, __LINE__); }\
 	} while (0)
 
+
+void print_alive_expr() {
+	for (auto p : DCount) {
+		Expr expr(*p);
+		printf("live object: %3d : %s\n", (int)expr.Uid(), expr.ToString().c_str());
+	}
+}
+
+
 void test_V() {
 
 	{
@@ -181,9 +190,6 @@ void test_Diff() {
 		TPrintf("x/sqrt(1+x)' : %s\n", (x / sqrt(1 + x)).D(x).ToString().c_str());
 	}
 
-	for (auto p : DCount) {
-		printf("live object: %p\n", (void*)p);
-	}
 	TEST_TRUE(DCount.size() <= 3);
 
 }
@@ -231,10 +237,7 @@ void replace_var_with_const_should_triger_fold() {
 		TPrintf("exp(pow(log(1 + cos(sin(sqrt(mass*mass + p*p)) - 1)), 2)/2) fix var: %s\n", e.ToString().c_str());
 
 	}
-
-	for (auto p : DCount) {
-		printf("live object: %p\n", (void*)p);
-	}
+	print_alive_expr();
 	TEST_TRUE(DCount.size() <= 3);
 
 }
@@ -460,9 +463,7 @@ void test_for() {
 
 	}
 
-	for (auto p : DCount) {
-		printf("live object: %p\n", (void*)p);
-	}
+	print_alive_expr();
 	TEST_TRUE(DCount.size() <= 3);
 
 }
@@ -943,6 +944,7 @@ int main()
 	test_for();
 	test_code();
 	
+	print_alive_expr();
 
 	printf("%d test(s) failed\n", n_failed);
 	return n_failed;

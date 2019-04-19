@@ -171,7 +171,9 @@ namespace Diff {
 	// make a Expression object reprent the differential respect` s`
 	// `var` must be handler of Variable object
 	Expr D(Expr const &expr, Expr const &var);
+	// i'th times differential
 	Expr D(Expr const &expr, Expr const &var, int i);
+	// pair.second'th times differential w.r.t pair.first
 	Expr D(Expr const &expr, std::pair<Expr, int> const &pair);
 
 	Expr Integrate(ExprOrDouble const &y, Expr const &x, ExprOrDouble const &from, ExprOrDouble const &to);
@@ -201,12 +203,15 @@ namespace Diff {
 
 	struct CCode
 	{
-		std::string Body;
 		struct ExprLess {
 			bool operator()(Expr const &l, Expr const &r) const {
 				return l.Uid() < r.Uid();
 			}
 		};
+		// the c++ expressions
+		std::string Body;
+		// c++ identifier (variable name) of all expression
+		// the c++ identifier of a Variable expresion is just the name of it
 		std::map<Expr, std::string, ExprLess> Names;
 	};
 	CCode ToCCode(Expr const &expr);
