@@ -878,9 +878,9 @@ void test_quad() {
 		printf("[ 0, 1]   x^3/2       %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_3d2(GaussLegendre16Points), x_3d2(GaussLegendre64Points), x_3d2(TanhSinh65Points), x_3d2(Tanh65Points), x_3d2(Erf65Points));
 		printf("[ 0, 1]   x*x         %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_2(GaussLegendre16Points), x_2(GaussLegendre64Points), x_2(TanhSinh65Points), x_2(Tanh65Points), x_2(Erf65Points));
 		printf("[ 0, 1]   1/(1+  xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_a(GaussLegendre16Points), x_a(GaussLegendre64Points), x_a(TanhSinh65Points), x_a(Tanh65Points), x_a(Erf65Points));
-		printf("[ 0, 1]   1/(1+  xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_b(GaussLegendre16Points), x_b(GaussLegendre64Points), x_b(TanhSinh65Points), x_b(Tanh65Points), x_b(Erf65Points));
+		printf("[-1, 1]   1/(1+  xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_b(GaussLegendre16Points), x_b(GaussLegendre64Points), x_b(TanhSinh65Points), x_b(Tanh65Points), x_b(Erf65Points));
 		printf("[ 0, 1]   1/(1+20xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_c(GaussLegendre16Points), x_c(GaussLegendre64Points), x_c(TanhSinh65Points), x_c(Tanh65Points), x_c(Erf65Points));
-		printf("[ 0, 1]   1/(1+20xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_d(GaussLegendre16Points), x_d(GaussLegendre64Points), x_d(TanhSinh65Points), x_d(Tanh65Points), x_d(Erf65Points));
+		printf("[-1, 1]   1/(1+20xx)  %+8.1E  %+6.1E  %+6.1E  %+6.1E  %+6.1E\n", x_d(GaussLegendre16Points), x_d(GaussLegendre64Points), x_d(TanhSinh65Points), x_d(Tanh65Points), x_d(Erf65Points));
 	}
 
 	{
