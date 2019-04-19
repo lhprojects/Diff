@@ -133,6 +133,75 @@ namespace Diff {
 	}
 
 
+	double const kr_x_15points[] = {
+		0,
+		0.2077849550078984676007,
+		0.4058451513773971669066,
+		0.5860872354676911302941,
+		0.7415311855993944398639,
+		0.8648644233597690727897,
+		0.9491079123427585245262,
+		0.9914553711208126392069
+	};
+
+	double const kr_w_15points[] = {
+		0.209482141084727828013,
+		0.2044329400752988924142,
+		0.190350578064785409913,
+		0.1690047266392679028266,
+		0.1406532597155259187452,
+		0.10479001032225018384,
+		0.0630920926299785532907,
+		0.02293532201052922496373 
+	};
+
+	double const gl_x_7points[] = {
+		0,
+		0.4058451513773971669066,
+		0.7415311855993944398639,
+		0.9491079123427585245262,
+	};
+
+	double const gl_w_7points[] = {
+		0.4179591836734693877551,
+		0.3818300505051189449504,
+		0.2797053914892766679015,
+		0.1294849661688696932706
+	};
+
+	void Gauss7PointsKronrod15Points(double(*stub)(void const *user_data, double x),
+		void const *user_data, double x0, double x1, double &kr, double &gl) {
+		double krV = 0;
+		double glV = 0;
+
+		for (int i = -7; i <= 7; ++i) {
+			double x;
+			double w;
+			if (i < 0) {
+				x = x0 + 0.5*(x1 - x0)*(1 - kr_x_15points[-i]);
+				w = kr_w_15points[-i];
+			} else {
+				x = x0 + 0.5*(x1 - x0)*(1 + kr_x_15points[i]);
+				w = kr_w_15points[i];
+			}
+			double v = stub(user_data, x);
+			krV += w * v;
+
+
+			if ((i&1) == 0) { // event
+				int j = (i + 32) / 2 - 16;
+				if (i < 0) {
+					w = gl_w_7points[-j];
+				} else {
+					w = gl_w_7points[j];
+				}
+				glV += w * v;
+			}
+		}
+		kr = 0.5*(x1 - x0)*krV;
+		gl = 0.5*(x1 - x0)*glV;
+	}
+
 	double const ts_65points_h = 0.13;
 	double const tanh_sinh_65points_h = ts_65points_h;
 

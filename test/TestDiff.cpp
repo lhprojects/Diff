@@ -921,6 +921,31 @@ void test_sum() {
 void test_reference_cout() {
 	TEST_TRUE(DCount.size() == 0);
 }
+
+void test_Gauss7PointsKronrod15Points() {
+
+	{
+		double kr;
+		double gl;
+		Gauss7PointsKronrod15Points([](void const *, double x) -> double {
+			return x*x*x;
+		}, nullptr, 0, 1, kr, gl);
+		TEST_SAME(kr, 0.25);
+		TEST_SAME(gl, 0.25);
+	}
+
+	{
+		double kr;
+		double gl;
+		Gauss7PointsKronrod15Points([](void const *, double x) -> double {
+			return sin(x);
+		}, nullptr, 0, PI, kr, gl);
+		TEST_SAME(kr, 2);
+		TEST_SAME(gl, 2);
+	}
+
+}
+
 int main()
 {
 	test_reference_cout();
@@ -938,7 +963,9 @@ int main()
 	test_Func1();
 
 	test_sum();
+
 	test_quad();
+	test_Gauss7PointsKronrod15Points();
 	test_Integrate();
 
 	test_for();

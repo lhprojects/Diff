@@ -25,6 +25,10 @@ namespace Diff {
 		return GaussLegendre16Points(stub, reinterpret_cast<void const*>(&l), x0, x1);
 	}
 
+
+	void Gauss7PointsKronrod15Points(double(*stub)(void const *user_data, double x),
+		void const *user_data, double x0, double x1, double &kr, double &gl);
+
 	extern double const tanh_sinh_65points_h;
 	extern double const tanh_sinh_1_minus_x_65points[33];
 	extern double const tanh_sinh_w_65points[33];
