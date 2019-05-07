@@ -223,6 +223,11 @@ namespace Diff {
 
 	Num VE(ExprOrDouble const &expr);
 
+	Expr operator==(ExprOrDouble const &a, ExprOrDouble const &b);
+	double Solve(Expr const &expr, Expr const &var,
+		double start = 0, double min = -INFINITY, double max = INFINITY, double tol = 1E-15,
+		double learnRate = 1.0);
+
 	// a functor wrapper
 	struct Func1
 	{

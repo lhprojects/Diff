@@ -946,6 +946,26 @@ void test_Gauss7PointsKronrod15Points() {
 
 }
 
+void test_solve() {
+
+	Var x("x", 0);
+	{
+		double x0;
+		x0 = Solve(x*x - 4 * x + 3 == 0, x, 1.5);
+		TEST_SAME(x0, 1);
+	}
+	{
+		double x0;
+		x0 = Solve(log(2*x) == 0, x, 1);
+		TEST_SAME(x0, 0.5);
+	}
+	{
+		double x0;
+		x0 = Solve(log(x + 2*x*x) == 0, x, 1);
+		TEST_SAME(x0, 0.5);
+	}
+}
+
 int main()
 {
 	test_reference_cout();
@@ -955,6 +975,8 @@ int main()
 
 	test_constant_fold();
 	test_V();
+
+	test_solve();
 
 	test_Diff();
 
@@ -970,7 +992,7 @@ int main()
 
 	test_for();
 	test_code();
-	
+
 	print_alive_expr();
 
 	printf("%d test(s) failed\n", n_failed);

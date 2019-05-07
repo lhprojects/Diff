@@ -1129,6 +1129,52 @@ namespace Diff {
 
 	};
 
+	std::string const EqualExprName = "==";
+	struct EqualExpr : DExprImpl {
+		Expr fLeft;
+		Expr fRight;
+		EqualExpr(Expr const &a, Expr const &b) : fLeft(a), fRight(b) {
+		}
+
+		void AddExpressions(std::set<DExprImpl const*> &s) const override {
+			if (s.insert(this).second) {
+				fLeft.fImpl->AddExpressions(s);
+				fRight.fImpl->AddExpressions(s);
+			}
+		}
+
+		void GetSubExpressions(SubExpressionVector &v) const override {
+			v.push_back(fLeft);
+			v.push_back(fRight);
+		}
+
+		std::string const &GetTypeName() const override {
+			return EqualExprName;
+		}
+
+		double EvalV() const override {
+			double left = fLeft.fImpl->VMem();
+			double right = fLeft.fImpl->VMem();
+			return left == right;
+		}
+
+		Expr EvalD(Var const &s) const override {
+			return Const(0);
+		}
+
+		void ToString(std::string &sb) const override {
+			fLeft.fImpl->ToString(sb);
+			sb.append("==");
+			fRight.fImpl->ToString(sb);
+		}
+
+	};
+
+	Expr operator==(ExprOrDouble const &a, ExprOrDouble const &b) {
+		return *new EqualExpr(a, b);
+	}
+
+
 	Expr operator*(ExprOrDouble const &s1, ExprOrDouble const &s2)
 	{
 		if (s1.fImpl->IsConst() && s1.fImpl->EvalV() == 1) {

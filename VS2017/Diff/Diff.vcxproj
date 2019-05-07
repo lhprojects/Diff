@@ -24,6 +24,7 @@
     <ClCompile Include="..\..\src\Quad.cpp" />
     <ClCompile Include="..\..\src\ReplaceVariable.cpp" />
     <ClCompile Include="..\..\src\ToCCode.cpp" />
+    <ClCompile Include="Solve.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
